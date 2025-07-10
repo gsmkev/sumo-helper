@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .map-container {
+    height: 600px;
+    width: 100%;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  
+  .network-visualization {
+    height: 500px;
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+  }
+  
+  .sidebar {
+    height: calc(100vh - 4rem);
+    overflow-y: auto;
+  }
+} 
