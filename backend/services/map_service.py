@@ -285,13 +285,25 @@ class MapService:
             for edge in net.getEdges():
                 # Consider edges with no incoming connections as entry points
                 if len(edge.getIncoming()) == 0:
-                    x, y = edge.getFromNode().getCoord()
-                    entry_points.append({
-                        "id": edge.getID(),
-                        "x": x,
-                        "y": y,
-                        "name": edge.getID()
-                    })
+                    from_node = edge.getFromNode()
+                    if from_node is not None:
+                        try:
+                            x, y = from_node.getCoord()
+                            entry_points.append({
+                                "id": edge.getID(),
+                                "x": x,
+                                "y": y,
+                                "name": edge.getID()
+                            })
+                        except Exception as coord_error:
+                            logger.warning(f"Could not get coordinates for edge {edge.getID()}: {coord_error}")
+                            # Add entry point without coordinates
+                            entry_points.append({
+                                "id": edge.getID(),
+                                "x": 0,
+                                "y": 0,
+                                "name": edge.getID()
+                            })
             
             logger.info(f"Found {len(entry_points)} entry points")
             return entry_points
@@ -323,13 +335,25 @@ class MapService:
             for edge in net.getEdges():
                 # Consider edges with no outgoing connections as exit points
                 if len(edge.getOutgoing()) == 0:
-                    x, y = edge.getToNode().getCoord()
-                    exit_points.append({
-                        "id": edge.getID(),
-                        "x": x,
-                        "y": y,
-                        "name": edge.getID()
-                    })
+                    to_node = edge.getToNode()
+                    if to_node is not None:
+                        try:
+                            x, y = to_node.getCoord()
+                            exit_points.append({
+                                "id": edge.getID(),
+                                "x": x,
+                                "y": y,
+                                "name": edge.getID()
+                            })
+                        except Exception as coord_error:
+                            logger.warning(f"Could not get coordinates for edge {edge.getID()}: {coord_error}")
+                            # Add exit point without coordinates
+                            exit_points.append({
+                                "id": edge.getID(),
+                                "x": 0,
+                                "y": 0,
+                                "name": edge.getID()
+                            })
             
             logger.info(f"Found {len(exit_points)} exit points")
             return exit_points

@@ -10,12 +10,9 @@ This module provides the FastAPI application with endpoints for:
 """
 
 import os
-import json
-import asyncio
 import logging
-import tempfile
 import shutil
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
@@ -27,6 +24,7 @@ import uvicorn
 from services.map_service import MapService
 from services.simulation_service import SimulationService
 from services.osmnx_service import OSMNXService
+from services.sumo_export_service import SUMOExportService
 from models.schemas import (
     MapSelection, 
     NetworkData, 
@@ -58,11 +56,12 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127
 map_service: Optional[MapService] = None
 simulation_service: Optional[SimulationService] = None
 osmnx_service: Optional[OSMNXService] = None
+sumo_export_service: Optional[SUMOExportService] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager for startup and shutdown"""
-    global map_service, simulation_service, osmnx_service
+    global map_service, simulation_service, osmnx_service, sumo_export_service
     
     # Startup
     logger.info("Starting SUMO Helper API...")
@@ -70,6 +69,7 @@ async def lifespan(app: FastAPI):
         map_service = MapService()
         simulation_service = SimulationService()
         osmnx_service = OSMNXService()
+        sumo_export_service = SUMOExportService()
         logger.info("Services initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -155,7 +155,8 @@ async def health_check():
         services_status = {
             "map_service": map_service is not None,
             "simulation_service": simulation_service is not None,
-            "osmnx_service": osmnx_service is not None
+            "osmnx_service": osmnx_service is not None,
+            "sumo_export_service": sumo_export_service is not None
         }
         
         all_healthy = all(services_status.values())
@@ -336,6 +337,109 @@ async def export_network(network_id: str, format: str = "sumo"):
             raise HTTPException(status_code=400, detail="Unsupported format")
     except Exception as e:
         logger.error(f"Failed to export network {network_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/simulations/export/{network_id}")
+async def export_simulation(
+    network_id: str,
+    data: Dict[str, Any]
+):
+    """Export simulation as SUMO-compatible files in ZIP format, siempre usando entry/exit edges válidos."""
+    try:
+        logger.info(f"Exporting simulation for network: {network_id}")
+        
+        # Get network data
+        network_data = await map_service.get_network_data(network_id)
+        all_edges = set(e['id'] for e in network_data.get('edges', []))
+
+        # Get entry and exit points
+        entry_points = await map_service.get_entry_points(network_id)
+        exit_points = await map_service.get_exit_points(network_id)
+        entry_ids = [e['id'] for e in entry_points]
+        exit_ids = [e['id'] for e in exit_points]
+
+        # Extract data from request
+        routes = data.get('routes', [])
+        simulation_config = data.get('simulation_config', {})
+        routes_data = []
+
+        if not routes:
+            # Si no hay rutas, generar rutas de ejemplo para todos los pares entry-exit
+            for entry in entry_ids:
+                for exit in exit_ids:
+                    if entry != exit:
+                        routes_data.append({
+                            "id": f"route_{entry}_to_{exit}",
+                            "edges": f"{entry} {exit}",
+                            "vehicle_count": 30,
+                            "vehicle_type": "car",
+                            "start_time": 0,
+                            "end_time": simulation_config.get('simulation_time', 3600)
+                        })
+        else:
+            # Si hay rutas, validar y corregir los IDs
+            for route in routes:
+                from_edge = route.get('from_edge')
+                to_edge = route.get('to_edge')
+                # Si el edge no existe, usar el primero de la lista
+                if from_edge not in all_edges:
+                    from_edge = entry_ids[0] if entry_ids else None
+                if to_edge not in all_edges:
+                    to_edge = exit_ids[0] if exit_ids else None
+                if not from_edge or not to_edge:
+                    continue  # No se puede crear la ruta
+                routes_data.append({
+                    "id": route.get('id', f"route_{from_edge}_to_{to_edge}"),
+                    "edges": f"{from_edge} {to_edge}",
+                    "vehicle_count": route.get('vehicle_count', 10),
+                    "vehicle_type": route.get('vehicle_type', 'car'),
+                    "start_time": route.get('start_time', 0),
+                    "end_time": route.get('end_time', simulation_config.get('simulation_time', 3600))
+                })
+
+        if not routes_data:
+            raise HTTPException(status_code=400, detail="No valid routes could be generated for this network.")
+
+        # Prepare simulation config
+        config_data = {
+            "simulation_time": simulation_config.get('simulation_time', 3600),
+            "name": f"simulation_{network_id}"
+        }
+        
+        # Export simulation
+        zip_path = await sumo_export_service.export_simulation(
+            network_data=network_data,
+            routes=routes_data,
+            simulation_config=config_data
+        )
+        
+        # Get export info
+        export_info = await sumo_export_service.get_export_info(zip_path)
+        
+        logger.info(f"Simulation exported successfully: {export_info['file_name']}")
+        return export_info
+        
+    except Exception as e:
+        logger.error(f"Failed to export simulation for {network_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/simulations/download/{filename}")
+async def download_simulation(filename: str):
+    """Download exported simulation file"""
+    try:
+        file_path = os.path.join("static/exports", filename)
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        return FileResponse(
+            file_path, 
+            filename=filename,
+            media_type="application/zip"
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to download simulation file {filename}: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 # File upload

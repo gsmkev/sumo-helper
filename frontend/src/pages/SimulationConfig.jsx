@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Play, ArrowLeft, Settings, Info } from 'lucide-react'
+import { Play, ArrowLeft, Settings, Info, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function SimulationConfig() {
   const { networkId } = useParams()
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   const handleStartSimulation = async () => {
     setIsLoading(true)
@@ -26,6 +27,73 @@ function SimulationConfig() {
     }
   }
 
+  const handleExportSimulation = async () => {
+    setIsExporting(true)
+    try {
+      // Create sample routes for export (this would come from the UI in a real implementation)
+      const sampleRoutes = [
+        {
+          id: "route_1",
+          from_edge: "entry_1",
+          to_edge: "exit_1", 
+          vehicle_count: 30,
+          vehicle_type: "car",
+          start_time: 0,
+          end_time: 3600
+        }
+      ]
+
+      const requestData = {
+        routes: sampleRoutes,
+        simulation_config: {
+          simulation_time: 3600,
+          step_length: 1.0,
+          use_gui: false,
+          random_seed: null,
+          output_prefix: "simulation"
+        }
+      }
+
+      const response = await fetch(`/api/simulations/export/${networkId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to export simulation')
+      }
+
+      const exportInfo = await response.json()
+      
+      // Download the file
+      const downloadResponse = await fetch(`/api/simulations/download/${exportInfo.file_name}`)
+      if (!downloadResponse.ok) {
+        throw new Error('Failed to download simulation file')
+      }
+
+      const blob = await downloadResponse.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = exportInfo.file_name
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success('Simulation exported successfully!')
+      
+    } catch (error) {
+      console.error('Error exporting simulation:', error)
+      toast.error('Failed to export simulation')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -42,6 +110,18 @@ function SimulationConfig() {
             Back to Network
           </button>
           <button
+            className="btn btn-secondary"
+            onClick={handleExportSimulation}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <span className="loading loading-spinner loading-sm"></span>
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
+            Export Simulation
+          </button>
+          <button
             className="btn btn-primary"
             onClick={handleStartSimulation}
             disabled={isLoading}
@@ -53,6 +133,18 @@ function SimulationConfig() {
             )}
             Start Simulation
           </button>
+        </div>
+      </div>
+
+      {/* Export Information */}
+      <div className="alert alert-success">
+        <Download className="h-6 w-6" />
+        <div>
+          <h3 className="font-bold">Export Simulation</h3>
+          <div className="text-sm">
+            Click "Export Simulation" to download a ZIP file containing all necessary SUMO files.
+            The exported simulation can be run independently using the included Python script.
+          </div>
         </div>
       </div>
 
