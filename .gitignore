@@ -52,3 +52,9 @@ logs/
 # Temporary files
 *.tmp
 *.temp 
+
+# Cache and static files
+backend/cache/
+backend/static/
+frontend/node_modules/
+node_modules/
