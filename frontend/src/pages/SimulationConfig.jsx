@@ -210,7 +210,7 @@ function SimulationConfig() {
             ) : (
               <Play className="h-4 w-4 mr-2" />
             )}
-            Start Simulation
+            Start with sumo-gui
           </button>
         </div>
       </div>
