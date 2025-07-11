@@ -586,7 +586,7 @@ function NetworkEditor() {
                         }}
                         icon={L.divIcon({
                           className: '',
-                          html: `<div style="background:${markerColor};color:white;padding:2px 6px;border-radius:6px;font-size:12px;border:2px solid #fff;">${node.id}</div>`
+                          html: `<div style="background:${markerColor};width:16px;height:16px;border-radius:50%;border:2px solid #fff;"></div>`
                         })}
                       >
                         <Popup>
