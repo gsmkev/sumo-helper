@@ -281,6 +281,8 @@ if __name__ == "__main__":
 '''
         return script_content
     
+
+    
     async def generate_routes_with_vehicles(
         self,
         network_data: Dict[str, Any],
@@ -468,15 +470,21 @@ if __name__ == "__main__":
         self, 
         network_data: Dict[str, Any], 
         routes: List[Dict[str, Any]], 
-        simulation_config: Dict[str, Any]
+        simulation_config: Dict[str, Any],
+        selected_entry_points: List[str] = None,
+        selected_exit_points: List[str] = None,
+        vehicle_distribution: List[Dict[str, Any]] = None
     ) -> str:
         """
-        Export simulation as a ZIP file with all necessary SUMO files
+        Export simulation as a ZIP file with all necessary SUMO files and metadata JSON
         
         Args:
             network_data: Network data with nodes and edges
             routes: Route configurations
             simulation_config: Simulation configuration
+            selected_entry_points: List of selected entry point IDs
+            selected_exit_points: List of selected exit point IDs
+            vehicle_distribution: Vehicle distribution configuration
             
         Returns:
             Path to the generated ZIP file
@@ -500,6 +508,16 @@ if __name__ == "__main__":
             config_content = self.create_sumo_config("network.net.xml", "routes.rou.xml", "traffic_lights.add.xml", simulation_time)
             run_script = self.create_run_script(simulation_name)
             
+            # Generate metadata JSON
+            metadata_json = self.create_simulation_metadata_json(
+                network_data=network_data,
+                routes=routes,
+                simulation_config=simulation_config,
+                selected_entry_points=selected_entry_points or [],
+                selected_exit_points=selected_exit_points or [],
+                vehicle_distribution=vehicle_distribution or []
+            )
+            
             # Write files to temporary directory
             files_to_create = [
                 ("nodes.nod.xml", nodes_content),
@@ -507,7 +525,8 @@ if __name__ == "__main__":
                 ("traffic_lights.add.xml", traffic_lights_content),
                 ("routes.rou.xml", route_content),
                 ("simulation.sumocfg", config_content),
-                ("run_simulation.py", run_script)
+                ("run_simulation.py", run_script),
+                ("simulation_metadata.json", metadata_json)
             ]
             
             for filename, content in files_to_create:
@@ -676,3 +695,129 @@ if __name__ == "__main__":
                 except:
                     pass
             raise Exception(f"Error running simulation: {str(e)}") 
+
+    def create_simulation_metadata_json(
+        self,
+        network_data: Dict[str, Any],
+        routes: List[Dict[str, Any]],
+        simulation_config: Dict[str, Any],
+        selected_entry_points: List[str],
+        selected_exit_points: List[str],
+        vehicle_distribution: List[Dict[str, Any]]
+    ) -> str:
+        """
+        Create a JSON file with all simulation metadata for reconstruction
+        
+        Args:
+            network_data: Network data with nodes and edges
+            routes: Route configurations
+            simulation_config: Simulation configuration
+            selected_entry_points: List of selected entry point IDs
+            selected_exit_points: List of selected exit point IDs
+            vehicle_distribution: Vehicle distribution configuration
+            
+        Returns:
+            JSON content as string
+        """
+        try:
+            # Extract data
+            nodes = network_data.get('nodes', [])
+            edges = network_data.get('edges', [])
+            bounds = network_data.get('bounds', {})
+            
+            # Create comprehensive metadata
+            metadata = {
+                "simulation_info": {
+                    "name": simulation_config.get('name', 'simulation'),
+                    "created_at": time.time(),
+                    "version": "1.0",
+                    "description": "SUMO simulation metadata for reconstruction"
+                },
+                "network_data": {
+                    "id": network_data.get('id', ''),
+                    "name": network_data.get('name', ''),
+                    "bounds": bounds,
+                    "node_count": len(nodes),
+                    "edge_count": len(edges)
+                },
+                "nodes": [
+                    {
+                        "id": node.get('id'),
+                        "x": node.get('x'),
+                        "y": node.get('y'),
+                        "lat": node.get('lat'),
+                        "lon": node.get('lon'),
+                        "type": node.get('type', 'priority'),
+                        "is_entry_point": node.get('id') in selected_entry_points,
+                        "is_exit_point": node.get('id') in selected_exit_points
+                    }
+                    for node in nodes
+                ],
+                "edges": [
+                    {
+                        "id": edge.get('id'),
+                        "from": edge.get('from'),
+                        "to": edge.get('to'),
+                        "shape": edge.get('shape'),
+                        "length": edge.get('length'),
+                        "speed": edge.get('speed'),
+                        "lanes": edge.get('lanes')
+                    }
+                    for edge in edges
+                ],
+                "simulation_config": {
+                    "total_vehicles": simulation_config.get('total_vehicles', 100),
+                    "simulation_time": simulation_config.get('simulation_time', 3600),
+                    "random_seed": simulation_config.get('random_seed'),
+                    "vehicle_distribution": [
+                        {
+                            "vehicle_type": vd.get("vehicle_type") if isinstance(vd, dict) else vd.vehicle_type,
+                            "percentage": vd.get("percentage") if isinstance(vd, dict) else vd.percentage,
+                            "color": vd.get("color") if isinstance(vd, dict) else vd.color,
+                            "period": vd.get("period") if isinstance(vd, dict) else vd.period,
+                            "attributes": vd.get("attributes") if isinstance(vd, dict) else vd.attributes
+                        }
+                        for vd in vehicle_distribution
+                    ]
+                },
+                "selected_points": {
+                    "entry_points": selected_entry_points,
+                    "exit_points": selected_exit_points
+                },
+                "routes": [
+                    {
+                        "id": route.get('id'),
+                        "edges": route.get('edges', []),
+                        "vehicle_type": route.get('vehicle_type', 'car'),
+                        "depart_time": route.get('depart_time', 0),
+                        "color": route.get('color', 'yellow')
+                    }
+                    for route in routes
+                ],
+                "reconstruction_info": {
+                    "instructions": "Para reconstruir esta simulación:",
+                    "steps": [
+                        "1. Cargar el archivo simulation_metadata.json",
+                        "2. Usar los datos de nodes y edges para recrear la red",
+                        "3. Aplicar la configuración de simulación",
+                        "4. Configurar los puntos de entrada y salida seleccionados",
+                        "5. Aplicar la distribución de vehículos",
+                        "6. Generar las rutas basadas en los datos de routes"
+                    ],
+                    "file_structure": {
+                        "nodes.nod.xml": "Definición de nodos de la red",
+                        "edges.edg.xml": "Definición de aristas de la red",
+                        "routes.rou.xml": "Rutas y flujos de vehículos",
+                        "simulation.sumocfg": "Configuración de la simulación",
+                        "traffic_lights.add.xml": "Semáforos detectados",
+                        "run_simulation.py": "Script para ejecutar la simulación",
+                        "simulation_metadata.json": "Metadatos completos para reconstrucción"
+                    }
+                }
+            }
+            
+            return json.dumps(metadata, indent=2, ensure_ascii=False)
+            
+        except Exception as e:
+            logger.error(f"Error creating simulation metadata JSON: {e}")
+            raise Exception(f"Error creating metadata JSON: {str(e)}") 

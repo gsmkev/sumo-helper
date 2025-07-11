@@ -34,6 +34,7 @@ function NetworkEditor() {
   useEffect(() => {
     loadNetworkData()
     loadSelectedPoints()
+    loadSimulationMetadata()
   }, [networkId])
 
   useEffect(() => {
@@ -107,6 +108,52 @@ function NetworkEditor() {
       }
     } catch (error) {
       console.error('Error loading selected points:', error)
+    }
+  }
+
+  const loadSimulationMetadata = () => {
+    try {
+      const loadedMetadata = localStorage.getItem('loaded_simulation_metadata')
+      if (loadedMetadata) {
+        const metadata = JSON.parse(loadedMetadata)
+        
+        // Check if this metadata is for the current network
+        if (metadata.network_data?.id === networkId) {
+          // Restore simulation configuration
+          if (metadata.simulation_config) {
+            setTotalVehicles(metadata.simulation_config.total_vehicles || 100)
+            setSimulationTime(metadata.simulation_config.simulation_time || 3600)
+            setRandomSeed(metadata.simulation_config.random_seed?.toString() || '')
+            if (metadata.simulation_config.vehicle_distribution) {
+              setVehicleDistribution(metadata.simulation_config.vehicle_distribution)
+            }
+          }
+          
+          // Restore selected points
+          if (metadata.selected_points) {
+            const entryPoints = metadata.nodes.filter(node => 
+              metadata.selected_points.entry_points.includes(node.id)
+            )
+            const exitPoints = metadata.nodes.filter(node => 
+              metadata.selected_points.exit_points.includes(node.id)
+            )
+            
+            setSelectedEntryPoints(entryPoints)
+            setSelectedExitPoints(exitPoints)
+            
+            // Save to localStorage
+            localStorage.setItem(`network_${networkId}_entry_points`, JSON.stringify(entryPoints))
+            localStorage.setItem(`network_${networkId}_exit_points`, JSON.stringify(exitPoints))
+          }
+          
+          // Clear the loaded metadata to avoid conflicts
+          localStorage.removeItem('loaded_simulation_metadata')
+          
+          toast.success('Simulation configuration restored from metadata!')
+        }
+      }
+    } catch (error) {
+      console.error('Error loading simulation metadata:', error)
     }
   }
 

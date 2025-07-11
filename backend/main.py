@@ -14,6 +14,7 @@ import logging
 import shutil
 from typing import List, Dict, Optional, Any
 from contextlib import asynccontextmanager
+import json
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -340,7 +341,10 @@ async def export_simulation(
         zip_path = await sumo_export_service.export_simulation(
             network_data=network_data,
             routes=routes_data,
-            simulation_config=config_data
+            simulation_config=config_data,
+            selected_entry_points=config.selected_entry_points,
+            selected_exit_points=config.selected_exit_points,
+            vehicle_distribution=config.vehicle_distribution
         )
         
         # Return the ZIP file directly
@@ -450,6 +454,76 @@ async def upload_file(file: UploadFile = File(...)):
         return result
     except Exception as e:
         logger.error(f"Failed to upload file {file.filename}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/simulations/load-metadata")
+async def load_simulation_metadata(file: UploadFile = File(...)):
+    """Load simulation metadata from ZIP file or JSON file for reconstruction"""
+    try:
+        logger.info(f"Loading simulation metadata from: {file.filename}")
+        
+        # Read file content
+        content = await file.read()
+        
+        # Check if it's a ZIP file
+        if file.filename.endswith('.zip'):
+            import zipfile
+            import io
+            
+            try:
+                # Open ZIP file
+                with zipfile.ZipFile(io.BytesIO(content), 'r') as zipf:
+                    # Look for simulation_metadata.json in the ZIP
+                    metadata_file_name = None
+                    for file_name in zipf.namelist():
+                        if file_name == 'simulation_metadata.json':
+                            metadata_file_name = file_name
+                            break
+                    
+                    if not metadata_file_name:
+                        raise HTTPException(status_code=400, detail="No simulation_metadata.json found in ZIP file")
+                    
+                    # Read the JSON file from ZIP
+                    with zipf.open(metadata_file_name) as json_file:
+                        json_content = json_file.read().decode('utf-8')
+                        metadata = json.loads(json_content)
+                
+                logger.info(f"Extracted metadata from ZIP: {file.filename}")
+                
+            except zipfile.BadZipFile:
+                raise HTTPException(status_code=400, detail="Invalid ZIP file format")
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Error reading ZIP file: {str(e)}")
+        
+        # Check if it's a JSON file
+        elif file.filename.endswith('.json'):
+            try:
+                metadata = json.loads(content.decode('utf-8'))
+            except json.JSONDecodeError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid JSON format: {str(e)}")
+        else:
+            raise HTTPException(status_code=400, detail="Only .zip or .json files are supported")
+        
+        # Validate metadata structure
+        required_fields = ['simulation_info', 'network_data', 'nodes', 'edges', 'simulation_config', 'selected_points', 'routes']
+        for field in required_fields:
+            if field not in metadata:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        logger.info(f"Simulation metadata loaded successfully: {metadata['simulation_info']['name']}")
+        
+        return {
+            "status": "success",
+            "message": "Simulation metadata loaded successfully",
+            "metadata": metadata,
+            "simulation_name": metadata['simulation_info']['name'],
+            "network_id": metadata['network_data']['id'],
+            "node_count": metadata['network_data']['node_count'],
+            "edge_count": metadata['network_data']['edge_count']
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to load simulation metadata: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":

@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Rectangle, useMapEvents, useMap } from 'react-leaflet'
-import { Search, Download, Upload, FileText } from 'lucide-react'
+import { Search, Download, Upload, FileText, Play } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
+import 'leaflet/dist/leaflet.css'
 
 // Componente para actualizar la vista del mapa
 function MapViewUpdater({ center, zoom }) {
@@ -30,6 +31,8 @@ function MapSelection() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadedFile, setUploadedFile] = useState(null)
   const fileInputRef = useRef(null)
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
+  const [metadataFile, setMetadataFile] = useState(null)
 
   const handleMapClick = (e) => {
     const { lat, lng } = e.latlng
@@ -106,14 +109,28 @@ function MapSelection() {
     
     const files = e.dataTransfer.files
     if (files.length > 0) {
-      handleFileUpload(files[0])
+      const file = files[0]
+      
+      // Determinar si es un archivo de metadatos o un ZIP normal
+      if (file.name.toLowerCase().endsWith('.json') || 
+          (file.name.toLowerCase().endsWith('.zip') && file.name.includes('simulation'))) {
+        handleMetadataFileUpload(file)
+      } else {
+        handleFileUpload(file)
+      }
     }
   }
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0]
     if (file) {
-      handleFileUpload(file)
+      // Determinar si es un archivo de metadatos o un ZIP normal
+      if (file.name.toLowerCase().endsWith('.json') || 
+          (file.name.toLowerCase().endsWith('.zip') && file.name.includes('simulation'))) {
+        handleMetadataFileUpload(file)
+      } else {
+        handleFileUpload(file)
+      }
     }
   }
 
@@ -128,15 +145,29 @@ function MapSelection() {
     toast.success(`File uploaded: ${file.name}`)
   }
 
+  const handleMetadataFileUpload = (file) => {
+    // Validar que sea un archivo ZIP o JSON
+    if (!file.name.toLowerCase().endsWith('.zip') && !file.name.toLowerCase().endsWith('.json')) {
+      toast.error('Please upload a ZIP file or JSON file from a previously exported simulation')
+      return
+    }
+
+    setMetadataFile(file)
+    toast.success(`Simulation file uploaded: ${file.name}`)
+  }
+
   const handleConvertToSumo = async () => {
-    if (!selectedArea && !uploadedFile) {
+    if (!selectedArea && !uploadedFile && !metadataFile) {
       toast.error('Please select an area or upload a file first')
       return
     }
 
     setIsLoading(true)
     try {
-      if (uploadedFile) {
+      if (metadataFile) {
+        // Procesar archivo de metadatos para reconstruir simulación
+        await handleLoadMetadata()
+      } else if (uploadedFile) {
         // TODO: Implementar lógica para procesar archivo ZIP
         toast.info('Processing uploaded file...')
         // Aquí iría la lógica para subir y procesar el archivo ZIP
@@ -163,6 +194,43 @@ function MapSelection() {
       toast.error(error.response?.data?.detail || 'Error converting map')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+
+
+  const handleLoadMetadata = async () => {
+    if (!metadataFile) {
+      toast.error('Please select a metadata file first')
+      return
+    }
+
+    setIsLoadingMetadata(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', metadataFile)
+
+      const response = await axios.post('/api/simulations/load-metadata', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      if (response.data.status === 'success') {
+        toast.success('Simulation metadata loaded successfully!')
+        
+        // Store metadata in localStorage for reconstruction
+        localStorage.setItem('loaded_simulation_metadata', JSON.stringify(response.data.metadata))
+        
+        // Redirect to network editor with the loaded data
+        const networkId = response.data.network_id
+        window.location.href = `/network/${networkId}?loaded=true`
+      }
+    } catch (error) {
+      console.error('Error loading metadata:', error)
+      toast.error(error.response?.data?.detail || 'Failed to load simulation metadata')
+    } finally {
+      setIsLoadingMetadata(false)
     }
   }
 
@@ -211,7 +279,7 @@ function MapSelection() {
           {/* File Upload */}
                       <div className="card bg-base-100 shadow-xl">
               <div className="card-body">
-                <h2 className="card-title">Upload SUMO Simulation</h2>
+                <h2 className="card-title">Upload Files</h2>
               
               <div className="form-control">
                 <label className="label">
@@ -231,16 +299,16 @@ function MapSelection() {
                 >
                   <Upload className="h-12 w-12 mx-auto mb-4 text-base-content/50" />
                   <p className="text-base-content/70 mb-2">
-                    Drag and drop your SUMO simulation ZIP file here, or click to browse
+                    Drag and drop ZIP files or simulation metadata files here, or click to browse
                   </p>
                   <p className="text-xs text-base-content/50">
-                    Upload a ZIP file containing SUMO network and simulation data
+                    Upload ZIP files for network processing or simulation files for reconstruction
                   </p>
                   
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".zip"
+                    accept=".zip,.json"
                     onChange={handleFileSelect}
                     className="hidden"
                   />
@@ -255,6 +323,24 @@ function MapSelection() {
                   </div>
                   <p className="text-sm text-base-content/70 mt-1">
                     Size: {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                  <p className="text-xs text-base-content/50">
+                    Network file for processing
+                  </p>
+                </div>
+              )}
+
+              {metadataFile && (
+                <div className="mt-4 p-4 bg-secondary/20 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <span className="font-medium">{metadataFile.name}</span>
+                  </div>
+                  <p className="text-sm text-base-content/70 mt-1">
+                    Size: {(metadataFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                  <p className="text-xs text-base-content/50">
+                    Simulation file for reconstruction
                   </p>
                 </div>
               )}
@@ -283,14 +369,14 @@ function MapSelection() {
                 <button
                   className="btn btn-primary w-full"
                   onClick={handleConvertToSumo}
-                  disabled={(!selectedArea && !uploadedFile) || isLoading}
+                  disabled={(!selectedArea && !uploadedFile && !metadataFile) || isLoading}
                 >
                   {isLoading ? (
                     <span className="loading loading-spinner loading-sm"></span>
                   ) : (
                     <>
                       <Download className="h-4 w-4 mr-2" />
-                      Convert to SUMO
+                      {metadataFile ? 'Load Simulation' : 'Convert to SUMO'}
                     </>
                   )}
                 </button>
@@ -302,8 +388,10 @@ function MapSelection() {
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
-            <span>You can search for a location on the map or upload a SUMO simulation ZIP file to continue editing your network.</span>
+            <span>You can search for a location on the map, upload ZIP files for processing, or upload simulation files to reconstruct previous simulations.</span>
           </div>
+
+
         </div>
 
         {/* Map */}
