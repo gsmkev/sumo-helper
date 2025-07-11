@@ -45,7 +45,7 @@ function MapSelection() {
         const place = response.data[0]
         const lat = parseFloat(place.lat)
         const lon = parseFloat(place.lon)
-        
+
         // Create a default area (approximately 1km x 1km)
         const offset = 0.005 // About 1km
         setSelectedArea({
@@ -54,7 +54,7 @@ function MapSelection() {
           east: lon + offset,
           west: lon - offset
         })
-        
+
         toast.success(`Found: ${place.display_name}`)
       } else {
         toast.error('Place not found')
@@ -85,12 +85,12 @@ function MapSelection() {
 
       // Then convert to SUMO
       const convertResponse = await axios.post(`/api/maps/convert-to-sumo/${tempMapId}`)
-      
+
       toast.success('Map converted to SUMO format!')
-      
+
       // Navigate to network editor
       navigate(`/network/${tempMapId}`)
-      
+
     } catch (error) {
       console.error('Error converting map:', error)
       toast.error(error.response?.data?.detail || 'Error converting map')
@@ -114,7 +114,7 @@ function MapSelection() {
           <div className="card bg-base-100 shadow-xl">
             <div className="card-body">
               <h2 className="card-title">Search Location</h2>
-              
+
               <div className="form-control">
                 <label className="label">
                   <span className="label-text">Place Name</span>
@@ -128,7 +128,7 @@ function MapSelection() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                   />
-                  <button 
+                  <button
                     className="btn btn-primary"
                     onClick={handleSearch}
                     disabled={isLoading}
@@ -144,9 +144,9 @@ function MapSelection() {
                 <label className="label">
                   <span className="label-text">Manual Coordinates</span>
                 </label>
-                              <div className="text-xs text-base-content/70 mb-2">
-                Tip: Select an area (approximately 1km x 1km) near main roads for best results
-              </div>
+                <div className="text-xs text-base-content/70 mb-2">
+                  Tip: Select an area (approximately 1km x 1km) near main roads for best results
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="number"
@@ -210,23 +210,11 @@ function MapSelection() {
             </div>
           </div>
 
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title">Instructions</h2>
-              <div className="text-sm space-y-2">
-                <p>1. Search for a location or click on the map</p>
-                <p>2. Select an area (1km x 1km max) near main roads</p>
-                <p>3. Adjust the selected area if needed</p>
-                <p>4. Click "Convert to SUMO" to generate the network</p>
-                <p>5. Continue to the Network Editor to configure routes</p>
-              </div>
-              <div className="alert alert-info mt-4">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>Note: Roads including secondary streets (highways, primary, secondary, tertiary, residential, service) will be included in the network.</span>
-              </div>
-            </div>
+          <div className="alert alert-info mt-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>Note: Roads including secondary streets (highways, primary, secondary, tertiary, residential, service) will be included in the network.</span>
           </div>
         </div>
 
@@ -245,9 +233,9 @@ function MapSelection() {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   />
-                  
+
                   <MapClickHandler onMapClick={handleMapClick} />
-                  
+
                   {selectedArea && (
                     <Rectangle
                       bounds={[
