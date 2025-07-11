@@ -417,6 +417,57 @@ async def download_simulation(filename: str):
         logger.error(f"Failed to download simulation file {filename}: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/api/simulations/run/{network_id}")
+async def run_simulation_with_gui(
+    network_id: str,
+    config: SimulationExportConfig
+):
+    """Run simulation with SUMO GUI using exported files."""
+    try:
+        logger.info(f"Running simulation with GUI for network: {network_id}")
+        
+        # Get network data
+        network_data = await map_service.get_network_data(network_id)
+        
+        # Validate entry and exit points
+        if not config.selected_entry_points:
+            raise HTTPException(status_code=400, detail="No entry points selected")
+        if not config.selected_exit_points:
+            raise HTTPException(status_code=400, detail="No exit points selected")
+        
+        # Generate routes with vehicle distribution
+        routes_data = await sumo_export_service.generate_routes_with_vehicles(
+            network_data=network_data,
+            total_vehicles=config.total_vehicles,
+            vehicle_distribution=config.vehicle_distribution,
+            entry_points=config.selected_entry_points,
+            exit_points=config.selected_exit_points,
+            simulation_time=config.simulation_time,
+            random_seed=config.random_seed
+        )
+        
+        if not routes_data:
+            raise HTTPException(status_code=400, detail="No valid routes could be generated for this network.")
+
+        # Prepare simulation config
+        config_data = {
+            "simulation_time": config.simulation_time,
+            "name": f"simulation_{network_id}"
+        }
+        
+        # Run simulation with GUI
+        result = await sumo_export_service.run_simulation_with_gui(
+            network_data=network_data,
+            routes=routes_data,
+            simulation_config=config_data
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to run simulation for {network_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 # File upload
 @app.post("/api/files/upload")
 async def upload_file(file: UploadFile = File(...)):

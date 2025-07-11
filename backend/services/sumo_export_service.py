@@ -21,6 +21,8 @@ from typing import Dict, List, Any, Optional
 from pathlib import Path
 import heapq
 
+from models.schemas import VehicleDistribution
+
 logger = logging.getLogger(__name__)
 
 class SUMOExportService:
@@ -177,8 +179,12 @@ class SUMOExportService:
         Returns:
             XML content for SUMO configuration file
         """
-        additional_input = f"""
-        <additional-files value="{additional_file}"/>""" if additional_file is not None else ""
+        # Handle additional file input safely
+        if additional_file is not None and additional_file != "":
+            additional_input = f"""
+        <additional-files value="{additional_file}"/>"""
+        else:
+            additional_input = ""
         
         config_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
@@ -279,7 +285,7 @@ if __name__ == "__main__":
         self,
         network_data: Dict[str, Any],
         total_vehicles: int,
-        vehicle_distribution: List[Dict[str, Any]],
+        vehicle_distribution: List[VehicleDistribution],
         entry_points: List[str],
         exit_points: List[str],
         simulation_time: int,
@@ -555,3 +561,118 @@ if __name__ == "__main__":
         except Exception as e:
             logger.error(f"Error getting export info: {e}")
             raise Exception(f"Error getting export info: {str(e)}") 
+
+    async def run_simulation_with_gui(
+        self, 
+        network_data: Dict[str, Any], 
+        routes: List[Dict[str, Any]], 
+        simulation_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Run simulation with SUMO GUI using temporary files
+        
+        Args:
+            network_data: Network data with nodes and edges
+            routes: Route configurations
+            simulation_config: Simulation configuration
+            
+        Returns:
+            Dictionary containing simulation run results
+        """
+        try:
+            # Create temporary directory for simulation files
+            temp_dir = tempfile.mkdtemp(prefix="sumo_simulation_")
+            logger.info(f"Created temporary directory for simulation: {temp_dir}")
+            
+            # Extract data
+            nodes = network_data.get('nodes', [])
+            edges = network_data.get('edges', [])
+            simulation_time = simulation_config.get('simulation_time', 200)
+            simulation_name = simulation_config.get('name', 'simulation')
+            
+            # Generate SUMO files
+            nodes_content = self.create_nodes_file(nodes)
+            edges_content = self.create_edges_file(edges)
+            traffic_lights_content = self.create_traffic_lights_file(nodes)
+            route_content = self.create_route_file(routes)
+            config_content = self.create_sumo_config("network.net.xml", "routes.rou.xml", "traffic_lights.add.xml", simulation_time)
+            
+            # Write files to temporary directory
+            files_to_create = [
+                ("nodes.nod.xml", nodes_content),
+                ("edges.edg.xml", edges_content),
+                ("traffic_lights.add.xml", traffic_lights_content),
+                ("routes.rou.xml", route_content),
+                ("simulation.sumocfg", config_content)
+            ]
+            
+            for filename, content in files_to_create:
+                file_path = os.path.join(temp_dir, filename)
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                logger.info(f"Created simulation file: {filename}")
+            
+            # Generate network with netconvert
+            logger.info("Generating network with netconvert...")
+            netconvert_cmd = [
+                "netconvert",
+                "--node-files", "nodes.nod.xml",
+                "--edge-files", "edges.edg.xml",
+                "--output-file", "network.net.xml",
+                "--no-turnarounds",
+                "--tls.guess", "true"
+            ]
+            
+            import subprocess
+            result = subprocess.run(netconvert_cmd, cwd=temp_dir, capture_output=True, text=True)
+            if result.returncode != 0:
+                logger.error(f"Error generating network: {result.stderr}")
+                raise Exception(f"Failed to generate network: {result.stderr}")
+            
+            logger.info("Network generated successfully")
+            
+            # Start SUMO GUI simulation in background
+            logger.info("Starting SUMO GUI simulation...")
+            sumo_cmd = ["sumo-gui", "-c", "simulation.sumocfg", "--no-step-log", "true"]
+            
+            # Run SUMO GUI in background process
+            process = subprocess.Popen(
+                sumo_cmd, 
+                cwd=temp_dir, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            # Wait a moment to check if process started successfully
+            import time
+            time.sleep(1)
+            
+            if process.poll() is not None:
+                # Process has already terminated
+                stdout, stderr = process.communicate()
+                logger.error(f"SUMO GUI failed to start: {stderr}")
+                raise Exception(f"SUMO GUI failed to start: {stderr}")
+            
+            logger.info(f"SUMO GUI simulation started successfully (PID: {process.pid})")
+            
+            return {
+                "status": "running",
+                "message": "SUMO GUI simulation started successfully",
+                "process_id": process.pid,
+                "temp_directory": temp_dir,
+                "simulation_name": simulation_name,
+                "simulation_time": simulation_time,
+                "total_vehicles": len(routes)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error running simulation with GUI: {e}")
+            # Clean up temporary directory if it exists
+            if 'temp_dir' in locals():
+                try:
+                    import shutil
+                    shutil.rmtree(temp_dir)
+                except:
+                    pass
+            raise Exception(f"Error running simulation: {str(e)}") 

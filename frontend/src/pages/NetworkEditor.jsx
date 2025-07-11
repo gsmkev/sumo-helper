@@ -14,6 +14,7 @@ function NetworkEditor() {
   const [selectedEntryPoints, setSelectedEntryPoints] = useState([])
   const [selectedExitPoints, setSelectedExitPoints] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSimulating, setIsSimulating] = useState(false)
   const [selectionMode, setSelectionMode] = useState('entry') // 'entry' or 'exit'
 
   useEffect(() => {
@@ -62,6 +63,49 @@ function NetworkEditor() {
     navigate(`/simulation/${networkId}`)
   }
 
+  const handleStartSimulation = async () => {
+    if (selectedEntryPoints.length === 0) {
+      toast.error('Please select at least one entry point')
+      return
+    }
+    if (selectedExitPoints.length === 0) {
+      toast.error('Please select at least one exit point')
+      return
+    }
+
+    setIsSimulating(true)
+    try {
+      // Default simulation configuration
+      const requestData = {
+        total_vehicles: 100,
+        vehicle_distribution: [
+          { vehicle_type: 'car', percentage: 70, color: 'yellow', period: 0.45 },
+          { vehicle_type: 'motorcycle', percentage: 15, color: 'green', period: 3.4 },
+          { vehicle_type: 'bus', percentage: 10, color: 'orange', period: 1.0 },
+          { vehicle_type: 'truck', percentage: 5, color: 'red', period: 1.7, attributes: 'accel="1.0"' }
+        ],
+        selected_entry_points: selectedEntryPoints.map(p => p.id),
+        selected_exit_points: selectedExitPoints.map(p => p.id),
+        simulation_time: 3600,
+        random_seed: null
+      }
+
+      const response = await axios.post(`/api/simulations/run/${networkId}`, requestData)
+      
+      if (response.data.status === 'running') {
+        toast.success('SUMO GUI simulation started successfully!')
+      } else {
+        toast.error('Failed to start simulation')
+      }
+      
+    } catch (error) {
+      console.error('Error starting simulation:', error)
+      toast.error(error.response?.data?.detail || 'Failed to start simulation')
+    } finally {
+      setIsSimulating(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -108,6 +152,18 @@ function NetworkEditor() {
             onClick={() => window.history.back()}
           >
             Back
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleStartSimulation}
+            disabled={isSimulating || selectedEntryPoints.length === 0 || selectedExitPoints.length === 0}
+          >
+            {isSimulating ? (
+              <span className="loading loading-spinner loading-sm"></span>
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            Start Simulation
           </button>
           <button
             className="btn btn-primary"

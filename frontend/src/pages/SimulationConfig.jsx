@@ -56,13 +56,44 @@ function SimulationConfig() {
   }
 
   const handleStartSimulation = async () => {
+    if (selectedEntryPoints.length === 0) {
+      toast.error('Please select at least one entry point')
+      return
+    }
+    if (selectedExitPoints.length === 0) {
+      toast.error('Please select at least one exit point')
+      return
+    }
+
+    // Validate vehicle distribution percentages
+    const totalPercentage = vehicleDistribution.reduce((sum, vd) => sum + vd.percentage, 0)
+    if (Math.abs(totalPercentage - 100) > 0.01) {
+      toast.error(`Vehicle distribution percentages must sum to 100% (currently ${totalPercentage.toFixed(1)}%)`)
+      return
+    }
+
     setIsLoading(true)
     try {
-      // TODO: Implement simulation configuration and start
-      toast.success('Simulation functionality not implemented yet')
+      const requestData = {
+        total_vehicles: totalVehicles,
+        vehicle_distribution: vehicleDistribution,
+        selected_entry_points: selectedEntryPoints.map(p => p.id),
+        selected_exit_points: selectedExitPoints.map(p => p.id),
+        simulation_time: simulationTime,
+        random_seed: randomSeed ? parseInt(randomSeed) : null
+      }
+
+      const response = await axios.post(`/api/simulations/run/${networkId}`, requestData)
+      
+      if (response.data.status === 'running') {
+        toast.success('SUMO GUI simulation started successfully!')
+      } else {
+        toast.error('Failed to start simulation')
+      }
+      
     } catch (error) {
       console.error('Error starting simulation:', error)
-      toast.error('Simulation functionality not implemented yet')
+      toast.error(error.response?.data?.detail || 'Failed to start simulation')
     } finally {
       setIsLoading(false)
     }
