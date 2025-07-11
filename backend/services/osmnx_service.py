@@ -58,13 +58,13 @@ class OSMNXService:
         try:
             logger.info(f"Selecting area: {place_name or 'Custom area'} ({north:.4f}, {south:.4f}, {east:.4f}, {west:.4f})")
             
-            # Validate area size
+            # Validate area size - Increased to 1km x 1km
             area_size = abs((north - south) * (east - west))
             if area_size > 0.01:  # Approximately 1km x 1km
                 raise Exception("Selected area is too large. Please select a smaller area (approximately 1km x 1km or less).")
             
-            # Download main roads only
-            custom_filter = '["highway"~"motorway|trunk|primary|secondary"]'
+            # Download roads including secondary streets and traffic lights
+            custom_filter = '["highway"~"motorway|trunk|primary|secondary|tertiary|residential|service"]'
             
             # Download with timeout
             G = await self._download_osm_data(north, south, east, west, custom_filter)
@@ -111,11 +111,32 @@ class OSMNXService:
             signal.alarm(30)
             
             try:
+                # Download road network
                 G = ox.graph_from_bbox(
                     north, south, east, west,
                     custom_filter=custom_filter,
                     simplify=True
                 )
+                
+                # Download traffic signals nodes
+                tags = {'highway': 'traffic_signals'}
+                traffic_signals = ox.geometries_from_bbox(north, south, east, west, tags)
+                
+                # Add traffic signal information to nodes
+                for node_id, data in G.nodes(data=True):
+                    # Check if this node has traffic signals nearby
+                    node_lat = data.get('y')
+                    node_lon = data.get('x')
+                    if node_lat and node_lon:
+                        # Look for traffic signals within 50 meters
+                        for signal_id, signal_data in traffic_signals.iterrows():
+                            signal_lat = signal_data.geometry.y
+                            signal_lon = signal_data.geometry.x
+                            distance = math.sqrt((node_lat - signal_lat)**2 + (node_lon - signal_lon)**2)
+                            if distance < 0.0005:  # Approximately 50 meters
+                                data['traffic_signals'] = True
+                                break
+                
                 return G
             finally:
                 signal.alarm(0)
@@ -126,7 +147,7 @@ class OSMNXService:
             error_msg = str(osm_error).lower()
             
             if "too many nodes" in error_msg:
-                raise Exception("Selected area contains too many nodes. Please select a smaller area (approximately 0.5km x 0.5km or less).")
+                raise Exception("Selected area contains too many nodes. Please select a smaller area (approximately 1km x 1km or less).")
             elif "no data elements" in error_msg:
                 # Try with broader filter if no main roads found
                 logger.warning("No main roads found, trying with broader filter")
@@ -378,7 +399,9 @@ class OSMNXService:
                         # Save original lat/lon
                         lat = data["y"]
                         lon = data["x"]
-                        f.write(f'        <node id="{node_id}" x="{local_x_rounded}" y="{local_y_rounded}" lat="{lat}" lon="{lon}" type="priority"/>' + "\n")
+                        # Check if this node has traffic signals
+                        node_type = "traffic_light" if data.get('traffic_signals', False) else "priority"
+                        f.write(f'        <node id="{node_id}" x="{local_x_rounded}" y="{local_y_rounded}" lat="{lat}" lon="{lon}" type="{node_type}"/>' + "\n")
                         node_count += 1
                 
                 if node_count == 0:

@@ -19,6 +19,9 @@ A web-based traffic simulation tool with OSM integration that allows users to se
 ### 🚗 Simulation Export
 - **NEW**: Export complete SUMO simulation packages
 - Generate SUMO-compatible files (nodes.nod.xml, edges.edg.xml, routes.rou.xml, simulation.sumocfg)
+- **NEW**: Include traffic lights (automatically detected from OSM data and converted to SUMO format)
+- **NEW**: Support for secondary streets (tertiary, residential, service roads)
+- **NEW**: Increased export area to 1km x 1km
 - Include Python execution script for independent simulation
 - ZIP package with all necessary files
 - Compatible with SUMO 1.8.0+ and follows the same format as `simple_network_robust_gui.py`
@@ -96,6 +99,7 @@ A web-based traffic simulation tool with OSM integration that allows users to se
 - The ZIP file contains:
   - `nodes.nod.xml` - SUMO nodes definition
   - `edges.edg.xml` - SUMO edges definition
+  - `traffic_lights.add.xml` - Traffic lights configuration (detected from OSM data)
   - `routes.rou.xml` - Vehicle routes and flows
   - `simulation.sumocfg` - SUMO configuration
   - `run_simulation.py` - Python script to execute the simulation

@@ -14,8 +14,8 @@ function MapSelection() {
 
   const handleMapClick = (e) => {
     const { lat, lng } = e.latlng
-    // Create a smaller default area (approximately 0.5km x 0.5km)
-    const offset = 0.005 // About 0.5km
+    // Create a default area (approximately 1km x 1km)
+    const offset = 0.005 // About 1km
     setSelectedArea({
       north: lat + offset,
       south: lat - offset,
@@ -46,8 +46,8 @@ function MapSelection() {
         const lat = parseFloat(place.lat)
         const lon = parseFloat(place.lon)
         
-        // Create a smaller default area (approximately 0.5km x 0.5km)
-        const offset = 0.005 // About 0.5km
+        // Create a default area (approximately 1km x 1km)
+        const offset = 0.005 // About 1km
         setSelectedArea({
           north: lat + offset,
           south: lat - offset,
@@ -145,7 +145,7 @@ function MapSelection() {
                   <span className="label-text">Manual Coordinates</span>
                 </label>
                               <div className="text-xs text-base-content/70 mb-2">
-                Tip: Select a small area (approximately 0.5km x 0.5km) near main roads for best results
+                Tip: Select an area (approximately 1km x 1km) near main roads for best results
               </div>
                 <div className="grid grid-cols-2 gap-2">
                   <input
@@ -215,7 +215,7 @@ function MapSelection() {
               <h2 className="card-title">Instructions</h2>
               <div className="text-sm space-y-2">
                 <p>1. Search for a location or click on the map</p>
-                <p>2. Select a small area (0.5km x 0.5km max) near main roads</p>
+                <p>2. Select an area (1km x 1km max) near main roads</p>
                 <p>3. Adjust the selected area if needed</p>
                 <p>4. Click "Convert to SUMO" to generate the network</p>
                 <p>5. Continue to the Network Editor to configure routes</p>
@@ -224,7 +224,7 @@ function MapSelection() {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-                <span>Note: Only main roads (highways, primary, secondary, tertiary) will be included in the network.</span>
+                <span>Note: Roads including secondary streets (highways, primary, secondary, tertiary, residential, service) will be included in the network.</span>
               </div>
             </div>
           </div>
