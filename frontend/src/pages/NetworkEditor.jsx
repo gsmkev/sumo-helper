@@ -136,6 +136,11 @@ function NetworkEditor() {
   // Visualización con react-leaflet
   const leafletNodes = networkData.nodes.filter(n => n.lat && n.lon);
   const leafletEdges = networkData.edges.filter(e => e.shape && e.shape[0] && e.shape[1]);
+  
+  // Remove duplicate edges based on ID to prevent React key conflicts
+  const uniqueEdges = leafletEdges.filter((edge, index, self) => 
+    index === self.findIndex(e => e.id === edge.id)
+  );
 
 
 
@@ -287,22 +292,22 @@ function NetworkEditor() {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   />
-                  {leafletEdges.map((edge, idx) => (
+                  {uniqueEdges.map((edge, idx) => (
                     <Polyline
-                      key={edge.id || idx}
+                      key={`edge-${edge.id}-${idx}`}
                       positions={edge.shape.map(([lat, lon]) => [lat, lon])}
                       color="#888"
                       weight={2}
                       opacity={0.7}
                     />
                   ))}
-                  {leafletNodes.map(node => {
+                  {leafletNodes.map((node, idx) => {
                     const isEntry = selectedEntryPoints.find(p => p.id === node.id);
                     const isExit = selectedExitPoints.find(p => p.id === node.id);
                     let markerColor = isEntry ? 'green' : isExit ? 'red' : 'blue';
                     return (
                       <Marker
-                        key={node.id}
+                        key={`node-${node.id}-${idx}`}
                         position={[node.lat, node.lon]}
                         eventHandlers={{
                           click: () => handleNodeClick(node)

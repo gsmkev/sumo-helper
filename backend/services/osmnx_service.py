@@ -412,8 +412,10 @@ class OSMNXService:
                 # Write edges
                 f.write('    <edges>\n')
                 edge_count = 0
+                edge_id_counter = 0
                 for u, v, data in G.edges(data=True):
-                    edge_id = f"{u}_{v}"
+                    edge_id = f"edge_{edge_id_counter}_{u}_{v}"
+                    edge_id_counter += 1
                     # Get default values with better defaults and handle list values
                     lanes_raw = data.get('lanes', 2)
                     if isinstance(lanes_raw, list):
