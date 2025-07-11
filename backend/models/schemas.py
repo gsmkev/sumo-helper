@@ -36,6 +36,23 @@ class VehicleType(BaseModel):
     min_gap: float = 2.5
     gui_shape: str = "passenger"
 
+class VehicleDistribution(BaseModel):
+    """Configuration for vehicle type distribution"""
+    vehicle_type: str = Field(..., description="Vehicle type ID (passenger, motorcycle, bus, truck)")
+    percentage: float = Field(..., ge=0.0, le=100.0, description="Percentage of total vehicles")
+    color: str = Field("yellow", description="Vehicle color in simulation")
+    period: float = Field(0.45, description="Time period between vehicles (seconds)")
+    attributes: Optional[str] = Field(None, description="Additional vehicle attributes")
+
+class SimulationExportConfig(BaseModel):
+    """Configuration for simulation export with vehicle distribution"""
+    total_vehicles: int = Field(..., ge=1, le=10000, description="Total number of vehicles")
+    vehicle_distribution: List[VehicleDistribution] = Field(..., description="Distribution of vehicle types")
+    selected_entry_points: List[str] = Field(..., description="Selected entry point IDs")
+    selected_exit_points: List[str] = Field(..., description="Selected exit point IDs")
+    simulation_time: int = Field(3600, ge=60, le=7200, description="Simulation duration in seconds")
+    random_seed: Optional[int] = Field(None, description="Random seed for reproducible results")
+
 class SimulationConfig(BaseModel):
     """Simulation configuration (skeleton - not implemented)"""
     network_id: str

@@ -15,8 +15,11 @@ import logging
 import tempfile
 import zipfile
 import time
+import random
+import math
 from typing import Dict, List, Any, Optional
 from pathlib import Path
+import heapq
 
 logger = logging.getLogger(__name__)
 
@@ -117,37 +120,45 @@ class SUMOExportService:
         route_content = """<?xml version="1.0" encoding="UTF-8"?>
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">"""
         
-        # Add vehicle types
-        if vehicle_types:
-            for vtype in vehicle_types:
-                vtype_id = vtype.get('id', 'car')
-                accel = vtype.get('accel', 2.6)
-                decel = vtype.get('decel', 4.5)
-                sigma = vtype.get('sigma', 0.5)
-                length = vtype.get('length', 5)
-                min_gap = vtype.get('minGap', 2.5)
-                max_speed = vtype.get('maxSpeed', 16.67)
-                gui_shape = vtype.get('guiShape', 'passenger')
-                
-                route_content += f"""
-    <vType id="{vtype_id}" accel="{accel}" decel="{decel}" sigma="{sigma}" length="{length}" minGap="{min_gap}" maxSpeed="{max_speed}" guiShape="{gui_shape}"/>"""
-        else:
-            # Default vehicle type (same as simple_network_robust_gui.py)
-            route_content += """
-    <vType id="car" accel="2.6" decel="4.5" sigma="0.5" length="5" minGap="2.5" maxSpeed="16.67" guiShape="passenger"/>"""
+        # Add vehicle types based on pinv01-25-traffic-sim.txt reference
+        route_content += """
+    <vType id="car" accel="2.6" decel="4.5" sigma="0.5" length="5" minGap="2.5" maxSpeed="16.67" guiShape="passenger"/>
+    <vType id="motorcycle" accel="2.6" decel="4.5" sigma="0.5" length="2.5" minGap="1.5" maxSpeed="20.83" guiShape="motorcycle"/>
+    <vType id="bus" accel="1.2" decel="4.5" sigma="0.5" length="12" minGap="3" maxSpeed="13.89" guiShape="bus"/>
+    <vType id="truck" accel="1.3" decel="4.5" sigma="0.5" length="8" minGap="3" maxSpeed="11.11" guiShape="truck"/>"""
         
-        # Add routes
-        for route in routes:
+        # Sort routes by departure time to avoid warnings
+        sorted_routes = sorted(routes, key=lambda x: x.get('start_time', 0))
+        
+        # Add routes and vehicles
+        for route in sorted_routes:
             route_id = route.get('id', f'route_{len(routes)}')
             edges = route.get('edges', '')
-            vehicle_count = route.get('vehicle_count', 10)
+            vehicle_count = route.get('vehicle_count', 1)
             vehicle_type = route.get('vehicle_type', 'car')
             start_time = route.get('start_time', 0)
             end_time = route.get('end_time', 3600)
+            color = route.get('color', 'yellow')
+            attributes = route.get('attributes', '')
+            vehicle_id = route.get('vehicle_id', f'vehicle_{route_id}')
             
+            # Add route
             route_content += f"""
-    <route id="{route_id}" edges="{edges}"/>
-    <flow id="flow_{route_id}" begin="{start_time}" end="{end_time}" vehsPerHour="{vehicle_count}" route="{route_id}" type="{vehicle_type}"/>"""
+    <route id="{route_id}" edges="{edges}"/>"""
+            
+            # Add individual vehicle or flow
+            if vehicle_count == 1:
+                # Single vehicle - only include valid SUMO attributes
+                vehicle_attrs = f'color="{color}"'
+                # Only include attributes that are valid for SUMO vehicles
+                if attributes and 'length' not in attributes:
+                    vehicle_attrs += f' {attributes}'
+                route_content += f"""
+    <vehicle id="{vehicle_id}" type="{vehicle_type}" route="{route_id}" depart="{start_time}" {vehicle_attrs}/>"""
+            else:
+                # Flow of vehicles
+                route_content += f"""
+    <flow id="flow_{route_id}" begin="{start_time}" end="{end_time}" vehsPerHour="{vehicle_count}" route="{route_id}" type="{vehicle_type}" color="{color}"/>"""
         
         route_content += """
 </routes>"""
@@ -263,6 +274,189 @@ if __name__ == "__main__":
     run_simulation()
 '''
         return script_content
+    
+    async def generate_routes_with_vehicles(
+        self,
+        network_data: Dict[str, Any],
+        total_vehicles: int,
+        vehicle_distribution: List[Dict[str, Any]],
+        entry_points: List[str],
+        exit_points: List[str],
+        simulation_time: int,
+        random_seed: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate routes with vehicle distribution from entry to exit points
+        - depart times are strictly increasing globally
+        - only color is allowed as vehicle attribute
+        - Dijkstra is used for valid routes
+        """
+        try:
+            if random_seed is not None:
+                random.seed(random_seed)
+            total_percentage = sum(vd.percentage for vd in vehicle_distribution)
+            if abs(total_percentage - 100.0) > 0.01:
+                raise Exception(f"Vehicle distribution percentages must sum to 100%, got {total_percentage}%")
+            vehicle_counts = {}
+            for vd in vehicle_distribution:
+                vehicle_type = vd.vehicle_type
+                percentage = vd.percentage
+                count = int((percentage / 100.0) * total_vehicles)
+                vehicle_counts[vehicle_type] = count
+            actual_total = sum(vehicle_counts.values())
+            if actual_total < total_vehicles:
+                first_type = vehicle_distribution[0].vehicle_type
+                vehicle_counts[first_type] += (total_vehicles - actual_total)
+            logger.info(f"Vehicle distribution: {vehicle_counts}")
+            # Build graph for Dijkstra
+            edges = network_data.get('edges', [])
+            graph = {}
+            for edge in edges:
+                from_node = edge.get('from')
+                to_node = edge.get('to')
+                edge_id = edge.get('id')
+                if from_node not in graph:
+                    graph[from_node] = []
+                graph[from_node].append((to_node, edge_id))
+            # Dijkstra shortest path
+            def dijkstra(start, goal):
+                queue = [(0, start, [])]
+                visited = set()
+                while queue:
+                    cost, node, path = heapq.heappop(queue)
+                    if node == goal:
+                        return path
+                    if node in visited:
+                        continue
+                    visited.add(node)
+                    for neighbor, edge_id in graph.get(node, []):
+                        if neighbor not in visited:
+                            heapq.heappush(queue, (cost+1, neighbor, path + [edge_id]))
+                return None
+            # Generate routes
+            routes_data = []
+            vehicle_id_counter = 0
+            global_depart = 0.0
+            depart_step = simulation_time / max(1, total_vehicles)
+            for vehicle_type, count in vehicle_counts.items():
+                if count == 0:
+                    continue
+                vd_config = next((vd for vd in vehicle_distribution if vd.vehicle_type == vehicle_type), None)
+                if not vd_config:
+                    continue
+                for i in range(count):
+                    entry_point = random.choice(entry_points)
+                    closest_exit = random.choice(exit_points)
+                    # Find valid path using Dijkstra
+                    route_path = dijkstra(entry_point, closest_exit)
+                    if not route_path:
+                        continue
+                    depart_time = global_depart
+                    global_depart += depart_step
+                    route_id = f"route_{vehicle_type}_{vehicle_id_counter}"
+                    routes_data.append({
+                        "id": route_id,
+                        "edges": " ".join(route_path),
+                        "vehicle_count": 1,
+                        "vehicle_type": vehicle_type,
+                        "start_time": depart_time,
+                        "end_time": depart_time + 1,
+                        "color": vd_config.color,
+                        "attributes": "",  # Only color allowed
+                        "vehicle_id": f"{vehicle_type}_{vehicle_id_counter}"
+                    })
+                    vehicle_id_counter += 1
+            logger.info(f"Generated {len(routes_data)} routes for {total_vehicles} vehicles")
+            return routes_data
+        except Exception as e:
+            logger.error(f"Error generating routes with vehicles: {e}")
+            raise Exception(f"Error generating routes: {str(e)}")
+    
+    def _find_closest_exit_point(
+        self, 
+        network_data: Dict[str, Any], 
+        entry_point: str, 
+        exit_points: List[str]
+    ) -> Optional[str]:
+        """Find the closest exit point to a given entry point"""
+        try:
+            # For now, use simple random selection
+            # TODO: Implement actual distance calculation using network topology
+            return random.choice(exit_points)
+        except Exception as e:
+            logger.warning(f"Error finding closest exit point: {e}")
+            return None
+    
+    def _calculate_route_path(
+        self, 
+        network_data: Dict[str, Any], 
+        entry_point: str, 
+        exit_point: str
+    ) -> Optional[List[str]]:
+        """Calculate route path from entry to exit point using real edge IDs"""
+        try:
+            edges = network_data.get('edges', [])
+            
+            # Create a mapping from node pairs to edge IDs
+            edge_mapping = {}
+            for edge in edges:
+                edge_id = edge.get('id', '')
+                from_node = edge.get('from', '')
+                to_node = edge.get('to', '')
+                
+                # Store both directions
+                edge_mapping[(from_node, to_node)] = edge_id
+                # Also store reverse direction if it's a bidirectional edge
+                if edge.get('bidirectional', False):
+                    edge_mapping[(to_node, from_node)] = edge_id
+            
+            # Try to find a direct edge from entry to exit
+            direct_edge = edge_mapping.get((entry_point, exit_point))
+            if direct_edge:
+                return [direct_edge]
+            
+            # If no direct edge, try to find a path through intermediate nodes
+            # For now, use a simple approach: find any edge that starts from entry_point
+            # and any edge that ends at exit_point, then connect them
+            entry_edges = []
+            exit_edges = []
+            
+            for edge in edges:
+                edge_id = edge.get('id', '')
+                from_node = edge.get('from', '')
+                to_node = edge.get('to', '')
+                
+                if from_node == entry_point:
+                    entry_edges.append((edge_id, to_node))
+                if to_node == exit_point:
+                    exit_edges.append((edge_id, from_node))
+            
+            # If we have both entry and exit edges, try to find a connection
+            if entry_edges and exit_edges:
+                # Pick a random entry edge and a random exit edge
+                entry_edge_id, entry_to_node = random.choice(entry_edges)
+                exit_edge_id, exit_from_node = random.choice(exit_edges)
+                
+                # If they connect through the same intermediate node, great!
+                if entry_to_node == exit_from_node:
+                    return [entry_edge_id, exit_edge_id]
+                
+                # Otherwise, try to find a connecting edge
+                connecting_edge = edge_mapping.get((entry_to_node, exit_from_node))
+                if connecting_edge:
+                    return [entry_edge_id, connecting_edge, exit_edge_id]
+                
+                # If no direct connection, just use the entry and exit edges
+                # (this might create an invalid route, but it's better than nothing)
+                return [entry_edge_id, exit_edge_id]
+            
+            # If we can't find a proper path, return None
+            logger.warning(f"Could not find valid route from {entry_point} to {exit_point}")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error calculating route path: {e}")
+            return None
     
     async def export_simulation(
         self, 

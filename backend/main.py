@@ -31,7 +31,9 @@ from models.schemas import (
     RouteConfig, 
     SimulationConfig,
     VehicleType,
-    SimulationResult
+    SimulationResult,
+    SimulationExportConfig,
+    VehicleDistribution
 )
 
 # Configure logging
@@ -342,67 +344,38 @@ async def export_network(network_id: str, format: str = "sumo"):
 @app.post("/api/simulations/export/{network_id}")
 async def export_simulation(
     network_id: str,
-    data: Dict[str, Any]
+    config: SimulationExportConfig
 ):
-    """Export simulation as SUMO-compatible files in ZIP format, siempre usando entry/exit edges válidos."""
+    """Export simulation as SUMO-compatible files in ZIP format with vehicle distribution."""
     try:
         logger.info(f"Exporting simulation for network: {network_id}")
         
         # Get network data
         network_data = await map_service.get_network_data(network_id)
-        all_edges = set(e['id'] for e in network_data.get('edges', []))
-
-        # Get entry and exit points
-        entry_points = await map_service.get_entry_points(network_id)
-        exit_points = await map_service.get_exit_points(network_id)
-        entry_ids = [e['id'] for e in entry_points]
-        exit_ids = [e['id'] for e in exit_points]
-
-        # Extract data from request
-        routes = data.get('routes', [])
-        simulation_config = data.get('simulation_config', {})
-        routes_data = []
-
-        if not routes:
-            # Si no hay rutas, generar rutas de ejemplo para todos los pares entry-exit
-            for entry in entry_ids:
-                for exit in exit_ids:
-                    if entry != exit:
-                        routes_data.append({
-                            "id": f"route_{entry}_to_{exit}",
-                            "edges": f"{entry} {exit}",
-                            "vehicle_count": 30,
-                            "vehicle_type": "car",
-                            "start_time": 0,
-                            "end_time": simulation_config.get('simulation_time', 3600)
-                        })
-        else:
-            # Si hay rutas, validar y corregir los IDs
-            for route in routes:
-                from_edge = route.get('from_edge')
-                to_edge = route.get('to_edge')
-                # Si el edge no existe, usar el primero de la lista
-                if from_edge not in all_edges:
-                    from_edge = entry_ids[0] if entry_ids else None
-                if to_edge not in all_edges:
-                    to_edge = exit_ids[0] if exit_ids else None
-                if not from_edge or not to_edge:
-                    continue  # No se puede crear la ruta
-                routes_data.append({
-                    "id": route.get('id', f"route_{from_edge}_to_{to_edge}"),
-                    "edges": f"{from_edge} {to_edge}",
-                    "vehicle_count": route.get('vehicle_count', 10),
-                    "vehicle_type": route.get('vehicle_type', 'car'),
-                    "start_time": route.get('start_time', 0),
-                    "end_time": route.get('end_time', simulation_config.get('simulation_time', 3600))
-                })
-
+        
+        # Validate entry and exit points
+        if not config.selected_entry_points:
+            raise HTTPException(status_code=400, detail="No entry points selected")
+        if not config.selected_exit_points:
+            raise HTTPException(status_code=400, detail="No exit points selected")
+        
+        # Generate routes with vehicle distribution
+        routes_data = await sumo_export_service.generate_routes_with_vehicles(
+            network_data=network_data,
+            total_vehicles=config.total_vehicles,
+            vehicle_distribution=config.vehicle_distribution,
+            entry_points=config.selected_entry_points,
+            exit_points=config.selected_exit_points,
+            simulation_time=config.simulation_time,
+            random_seed=config.random_seed
+        )
+        
         if not routes_data:
             raise HTTPException(status_code=400, detail="No valid routes could be generated for this network.")
 
         # Prepare simulation config
         config_data = {
-            "simulation_time": simulation_config.get('simulation_time', 3600),
+            "simulation_time": config.simulation_time,
             "name": f"simulation_{network_id}"
         }
         
@@ -413,11 +386,13 @@ async def export_simulation(
             simulation_config=config_data
         )
         
-        # Get export info
-        export_info = await sumo_export_service.get_export_info(zip_path)
-        
-        logger.info(f"Simulation exported successfully: {export_info['file_name']}")
-        return export_info
+        # Return the ZIP file directly
+        filename = os.path.basename(zip_path)
+        return FileResponse(
+            zip_path,
+            filename=filename,
+            media_type="application/zip"
+        )
         
     except Exception as e:
         logger.error(f"Failed to export simulation for {network_id}: {e}")
