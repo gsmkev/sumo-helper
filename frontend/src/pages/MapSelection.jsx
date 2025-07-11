@@ -1,9 +1,21 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, Rectangle, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Rectangle, useMapEvents, useMap } from 'react-leaflet'
 import { Search, Download, ArrowRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
+
+// Componente para actualizar la vista del mapa
+function MapViewUpdater({ center, zoom }) {
+  const map = useMap()
+  
+  // Actualizar la vista cuando cambien las coordenadas
+  if (center && center[0] && center[1]) {
+    map.setView(center, zoom)
+  }
+  
+  return null
+}
 
 function MapSelection() {
   const navigate = useNavigate()
@@ -11,6 +23,8 @@ function MapSelection() {
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [mapId, setMapId] = useState(null)
+  const [mapCenter, setMapCenter] = useState([40.4168, -3.7038]) // Madrid default
+  const [mapZoom, setMapZoom] = useState(10)
 
   const handleMapClick = (e) => {
     const { lat, lng } = e.latlng
@@ -45,6 +59,10 @@ function MapSelection() {
         const place = response.data[0]
         const lat = parseFloat(place.lat)
         const lon = parseFloat(place.lon)
+
+        // Update map center to the found location
+        setMapCenter([lat, lon])
+        setMapZoom(15) // Zoom in closer to the location
 
         // Create a default area (approximately 1km x 1km)
         const offset = 0.005 // About 1km
@@ -225,8 +243,8 @@ function MapSelection() {
               <h2 className="card-title">Interactive Map</h2>
               <div className="map-container">
                 <MapContainer
-                  center={[40.4168, -3.7038]} // Madrid default
-                  zoom={10}
+                  center={mapCenter}
+                  zoom={mapZoom}
                   style={{ height: '100%', width: '100%' }}
                 >
                   <TileLayer
@@ -235,6 +253,7 @@ function MapSelection() {
                   />
 
                   <MapClickHandler onMapClick={handleMapClick} />
+                  <MapViewUpdater center={mapCenter} zoom={mapZoom} />
 
                   {selectedArea && (
                     <Rectangle
