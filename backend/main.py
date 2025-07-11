@@ -27,13 +27,9 @@ from services.osmnx_service import OSMNXService
 from services.sumo_export_service import SUMOExportService
 from models.schemas import (
     MapSelection, 
-    NetworkData, 
     RouteConfig, 
-    SimulationConfig,
     VehicleType,
-    SimulationResult,
-    SimulationExportConfig,
-    VehicleDistribution
+    SimulationExportConfig
 )
 
 # Configure logging
@@ -277,50 +273,11 @@ async def get_vehicle_types():
     logger.info(f"Returning {len(vehicle_types)} vehicle types")
     return vehicle_types
 
-# Simulation Configuration (Skeleton - Not Implemented)
-@app.post("/api/simulations/configure")
-async def configure_simulation(config: SimulationConfig):
-    """Configure simulation parameters (skeleton - not implemented)"""
-    try:
-        logger.info(f"Simulation configuration requested (skeleton mode)")
-        result = await simulation_service.configure_simulation(config.dict())
-        return result
-    except Exception as e:
-        logger.error(f"Simulation configuration error: {e}")
-        raise HTTPException(status_code=400, detail="Simulation configuration not implemented yet")
 
-@app.post("/api/simulations/start/{simulation_id}")
-async def start_simulation(simulation_id: str):
-    """Start a simulation (skeleton - not implemented)"""
-    try:
-        logger.info(f"Simulation start requested for {simulation_id} (skeleton mode)")
-        result = await simulation_service.start_simulation(simulation_id)
-        return result
-    except Exception as e:
-        logger.error(f"Simulation start error: {e}")
-        raise HTTPException(status_code=400, detail="Simulation start not implemented yet")
 
-@app.get("/api/simulations/{simulation_id}/status")
-async def get_simulation_status(simulation_id: str):
-    """Get simulation status and progress (skeleton - not implemented)"""
-    try:
-        logger.debug(f"Simulation status requested for {simulation_id} (skeleton mode)")
-        status = await simulation_service.get_simulation_status(simulation_id)
-        return status
-    except Exception as e:
-        logger.error(f"Simulation status error: {e}")
-        raise HTTPException(status_code=404, detail="Simulation status not implemented yet")
 
-@app.get("/api/simulations/{simulation_id}/results")
-async def get_simulation_results(simulation_id: str):
-    """Get simulation results (skeleton - not implemented)"""
-    try:
-        logger.info(f"Simulation results requested for {simulation_id} (skeleton mode)")
-        results = await simulation_service.get_simulation_results(simulation_id)
-        return results
-    except Exception as e:
-        logger.error(f"Simulation results error: {e}")
-        raise HTTPException(status_code=404, detail="Simulation results not implemented yet")
+
+
 
 # Export functionality
 @app.get("/api/networks/{network_id}/export")

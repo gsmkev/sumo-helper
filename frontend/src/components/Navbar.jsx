@@ -1,4 +1,4 @@
-import { Menu, Map, Settings, Play, BarChart3 } from 'lucide-react'
+import { Menu, Map, Settings } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 function Navbar({ onMenuClick }) {
@@ -31,18 +31,7 @@ function Navbar({ onMenuClick }) {
               Network Editor
             </Link>
           </li>
-          <li>
-            <Link to="/simulation" className="flex items-center gap-2">
-              <Play className="h-4 w-4" />
-              Simulation
-            </Link>
-          </li>
-          <li>
-            <Link to="/monitor" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Monitor
-            </Link>
-          </li>
+
         </ul>
       </div>
     </div>

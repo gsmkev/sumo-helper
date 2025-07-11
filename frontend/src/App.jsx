@@ -20,8 +20,6 @@ import Sidebar from './components/Sidebar'
 // Pages
 import MapSelection from './pages/MapSelection'
 import NetworkEditor from './pages/NetworkEditor'
-import SimulationConfig from './pages/SimulationConfig'
-import SimulationMonitor from './pages/SimulationMonitor'
 
 // Utilities
 import { cn } from './lib/utils'
@@ -67,11 +65,7 @@ function App() {
               {/* Network analysis and editing */}
               <Route path="/network/:networkId" element={<NetworkEditor />} />
               
-              {/* Simulation configuration */}
-              <Route path="/simulation/:networkId" element={<SimulationConfig />} />
-              
-              {/* Simulation monitoring and results */}
-              <Route path="/monitor/:simulationId" element={<SimulationMonitor />} />
+
             </Routes>
           </div>
         </main>

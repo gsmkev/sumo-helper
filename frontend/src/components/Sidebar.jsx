@@ -1,4 +1,4 @@
-import { X, Map, Settings, Play, BarChart3, Upload, Download } from 'lucide-react'
+import { X, Map, Settings, Upload, Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '../lib/utils'
 
@@ -32,18 +32,7 @@ function Sidebar({ isOpen, onClose }) {
               <span>Network Editor</span>
             </Link>
           </li>
-          <li>
-            <Link to="/simulation" className="flex items-center gap-3 p-3 hover:bg-base-300 rounded-lg">
-              <Play className="h-5 w-5" />
-              <span>Simulation Config</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/monitor" className="flex items-center gap-3 p-3 hover:bg-base-300 rounded-lg">
-              <BarChart3 className="h-5 w-5" />
-              <span>Simulation Monitor</span>
-            </Link>
-          </li>
+
         </ul>
         
         <div className="divider"></div>
