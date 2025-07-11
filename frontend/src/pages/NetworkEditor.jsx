@@ -18,6 +18,7 @@ function NetworkEditor() {
   const [selectionMode, setSelectionMode] = useState('entry') // 'entry' or 'exit'
   const [isFullscreen, setIsFullscreen] = useState(false)
   const mapContainerRef = useRef(null)
+  const mapRef = useRef(null)
   
   // Vehicle configuration state
   const [totalVehicles, setTotalVehicles] = useState(100)
@@ -34,6 +35,19 @@ function NetworkEditor() {
     loadNetworkData()
     loadSelectedPoints()
   }, [networkId])
+
+  useEffect(() => {
+    if (mapRef.current && leafletNodes.length > 0) {
+      const map = mapRef.current;
+      const validNodes = leafletNodes.filter(n => n.lat && n.lon);
+      if (validNodes.length > 0) {
+        const bounds = validNodes.map(n => [n.lat, n.lon]);
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+    }
+    // Solo cuando cambia la red
+    // eslint-disable-next-line
+  }, [networkId]);
 
   // Pantalla completa nativa
   useEffect(() => {
@@ -558,8 +572,8 @@ function NetworkEditor() {
                   className="w-full h-full"
                   style={{ height: '100%', width: '100%' }}
                   scrollWheelZoom={true}
+                  whenCreated={mapInstance => { mapRef.current = mapInstance; }}
                 >
-                  <FitBounds nodes={leafletNodes} />
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -589,7 +603,7 @@ function NetworkEditor() {
                           html: `<div style="background:${markerColor};width:16px;height:16px;border-radius:50%;border:2px solid #fff;"></div>`
                         })}
                       >
-                        <Popup>
+                        <Popup autoPan={false}>
                           <div>
                             <b>ID:</b> {node.id}<br />
                             <b>Type:</b> {node.type}<br />
