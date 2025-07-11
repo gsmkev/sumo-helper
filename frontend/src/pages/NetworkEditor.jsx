@@ -126,23 +126,27 @@ function NetworkEditor() {
     }
   }
 
-  const handleStartSimulation = async () => {
+  // Extract validation to a reusable function
+  const validateEntryExitPoints = () => {
     if (selectedEntryPoints.length === 0) {
       toast.error('Please select at least one entry point')
-      return
+      return false
     }
     if (selectedExitPoints.length === 0) {
       toast.error('Please select at least one exit point')
-      return
+      return false
     }
-
     // Validate vehicle distribution percentages
     const totalPercentage = vehicleDistribution.reduce((sum, vd) => sum + vd.percentage, 0)
     if (Math.abs(totalPercentage - 100) > 0.01) {
       toast.error(`Vehicle distribution percentages must sum to 100% (currently ${totalPercentage.toFixed(1)}%)`)
-      return
+      return false
     }
+    return true
+  }
 
+  const handleStartSimulation = async () => {
+    if (!validateEntryExitPoints()) return
     setIsLoading(true)
     try {
       const requestData = {
@@ -153,15 +157,12 @@ function NetworkEditor() {
         simulation_time: simulationTime,
         random_seed: randomSeed ? parseInt(randomSeed) : null
       }
-
       const response = await axios.post(`/api/simulations/run/${networkId}`, requestData)
-      
       if (response.data.status === 'running') {
         toast.success('SUMO GUI simulation started successfully!')
       } else {
         toast.error('Failed to start simulation')
       }
-      
     } catch (error) {
       console.error('Error starting simulation:', error)
       toast.error(error.response?.data?.detail || 'Failed to start simulation')
@@ -171,22 +172,7 @@ function NetworkEditor() {
   }
 
   const handleExportSimulation = async () => {
-    if (selectedEntryPoints.length === 0) {
-      toast.error('Please select at least one entry point')
-      return
-    }
-    if (selectedExitPoints.length === 0) {
-      toast.error('Please select at least one exit point')
-      return
-    }
-
-    // Validate vehicle distribution percentages
-    const totalPercentage = vehicleDistribution.reduce((sum, vd) => sum + vd.percentage, 0)
-    if (Math.abs(totalPercentage - 100) > 0.01) {
-      toast.error(`Vehicle distribution percentages must sum to 100% (currently ${totalPercentage.toFixed(1)}%)`)
-      return
-    }
-
+    if (!validateEntryExitPoints()) return
     setIsExporting(true)
     try {
       const requestData = {
@@ -197,11 +183,9 @@ function NetworkEditor() {
         simulation_time: simulationTime,
         random_seed: randomSeed ? parseInt(randomSeed) : null
       }
-
       const response = await axios.post(`/api/simulations/export/${networkId}`, requestData, {
         responseType: 'blob'
       })
-
       // Create download link
       const blob = new Blob([response.data], { type: 'application/zip' })
       const url = window.URL.createObjectURL(blob)
@@ -212,9 +196,7 @@ function NetworkEditor() {
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
-
       toast.success('Simulation exported successfully!')
-      
     } catch (error) {
       console.error('Error exporting simulation:', error)
       toast.error('Failed to export simulation')
@@ -257,6 +239,11 @@ function NetworkEditor() {
     toast.success('Entry and exit points saved successfully!')
   }
 
+  const isSimulationConfigValid =
+    selectedEntryPoints.length > 0 &&
+    selectedExitPoints.length > 0 &&
+    Math.abs(vehicleDistribution.reduce((sum, vd) => sum + vd.percentage, 0) - 100) < 0.01;
+
   if (isLoading && !networkData) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -273,7 +260,7 @@ function NetworkEditor() {
     )
   }
 
-  // Nueva función para centrar el mapa en los nodos
+  // New function to center the map on the nodes  
   function FitBounds({ nodes }) {
     const map = useMap();
     if (!nodes || nodes.length === 0) return null;
@@ -284,7 +271,7 @@ function NetworkEditor() {
     return null;
   }
 
-  // Visualización con react-leaflet
+  // Visualization with react-leaflet
   const leafletNodes = networkData.nodes.filter(n => n.lat && n.lon);
   const leafletEdges = networkData.edges.filter(e => e.shape && e.shape[0] && e.shape[1]);
   
@@ -322,7 +309,7 @@ function NetworkEditor() {
           <button
             className="btn btn-primary"
             onClick={handleStartSimulation}
-            disabled={isLoading}
+            disabled={isLoading || !isSimulationConfigValid}
           >
             {isLoading ? (
               <span className="loading loading-spinner loading-sm"></span>
@@ -537,7 +524,7 @@ function NetworkEditor() {
                 </div>
               )}
 
-              {/* Botón pantalla completa (si no está en fullscreen) */}
+              {/* Fullscreen button (if not in fullscreen) */}
               {!isFullscreen && (
                 <button
                   className="absolute top-4 right-4 z-50 btn btn-circle btn-sm btn-neutral shadow"
@@ -547,7 +534,7 @@ function NetworkEditor() {
                   <Maximize2 className="h-4 w-4" />
                 </button>
               )}
-              {/* Botón salir de pantalla completa (si está en fullscreen) */}
+              {/* Exit fullscreen button (if in fullscreen) */}
               {isFullscreen && (
                 <button
                   className="absolute top-4 right-4 z-50 btn btn-circle btn-sm btn-neutral shadow"
