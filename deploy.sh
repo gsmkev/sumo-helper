@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # SUMO Helper Production Deployment Script
-# This script automates the deployment process for production environments
+# This script automates the deployment of SUMO Helper in production
 
 set -e  # Exit on any error
 
@@ -13,253 +13,270 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_NAME="sumo-helper"
+APP_NAME="sumo-helper"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 ENV_FILE=".env"
 
-# Logging functions
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+# Logging function
+log() {
+    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
 }
 
-log_success() {
+error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+    exit 1
+}
+
+success() {
     echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
-log_warning() {
+warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Check if running as root
-check_root() {
-    if [[ $EUID -eq 0 ]]; then
-        log_error "This script should not be run as root"
-        exit 1
-    fi
 }
 
 # Check prerequisites
 check_prerequisites() {
-    log_info "Checking prerequisites..."
+    log "Checking prerequisites..."
     
-    # Check Docker
+    # Check if Docker is installed
     if ! command -v docker &> /dev/null; then
-        log_error "Docker is not installed. Please install Docker first."
-        exit 1
+        error "Docker is not installed. Please install Docker first."
     fi
     
-    # Check Docker Compose
+    # Check if Docker Compose is installed
     if ! command -v docker-compose &> /dev/null; then
-        log_error "Docker Compose is not installed. Please install Docker Compose first."
-        exit 1
+        error "Docker Compose is not installed. Please install Docker Compose first."
     fi
     
-    # Check if Docker daemon is running
-    if ! docker info &> /dev/null; then
-        log_error "Docker daemon is not running. Please start Docker first."
-        exit 1
+    # Check if the docker-compose.yml file exists
+    if [ ! -f "$DOCKER_COMPOSE_FILE" ]; then
+        error "Docker Compose file not found: $DOCKER_COMPOSE_FILE"
     fi
     
-    log_success "Prerequisites check passed"
+    success "Prerequisites check passed"
 }
 
-# Generate environment file
-generate_env_file() {
-    log_info "Generating environment file..."
+# Create necessary directories
+create_directories() {
+    log "Creating necessary directories..."
     
-    if [[ ! -f "$ENV_FILE" ]]; then
-        cat > "$ENV_FILE" << EOF
-# SUMO Helper Production Environment Variables
-ENVIRONMENT=production
-HOST=0.0.0.0
-PORT=8000
-LOG_LEVEL=INFO
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-SUMO_HOME=/opt/sumo
-OSM_TIMEOUT=30
-OSM_MAX_AREA_SIZE=0.01
-DEFAULT_SIMULATION_TIME=3600
-MAX_SIMULATION_TIME=7200
-RATE_LIMIT_ENABLED=true
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW=3600
-EOF
-        log_success "Environment file created: $ENV_FILE"
+    mkdir -p static/exports
+    mkdir -p static/uploads
+    mkdir -p logs
+    
+    # Set proper permissions
+    chmod 755 static/exports
+    chmod 755 static/uploads
+    chmod 755 logs
+    
+    success "Directories created successfully"
+}
+
+# Load environment variables
+load_environment() {
+    log "Loading environment variables..."
+    
+    if [ -f "$ENV_FILE" ]; then
+        export $(cat $ENV_FILE | grep -v '^#' | xargs)
+        success "Environment variables loaded from $ENV_FILE"
     else
-        log_warning "Environment file already exists: $ENV_FILE"
+        warning "No .env file found. Using default environment variables."
     fi
 }
 
-# Build and start services
-deploy_services() {
-    log_info "Deploying services..."
+# Build Docker images
+build_images() {
+    log "Building Docker images..."
     
-    # Stop existing containers
-    log_info "Stopping existing containers..."
-    docker-compose down --remove-orphans
-    
-    # Build images
-    log_info "Building Docker images..."
     docker-compose build --no-cache
     
-    # Start services
-    log_info "Starting services..."
+    if [ $? -eq 0 ]; then
+        success "Docker images built successfully"
+    else
+        error "Failed to build Docker images"
+    fi
+}
+
+# Stop existing containers
+stop_containers() {
+    log "Stopping existing containers..."
+    
+    docker-compose down --remove-orphans
+    
+    success "Existing containers stopped"
+}
+
+# Start services
+start_services() {
+    log "Starting services..."
+    
     docker-compose up -d
     
-    log_success "Services deployed successfully"
-}
-
-# Wait for services to be ready
-wait_for_services() {
-    log_info "Waiting for services to be ready..."
-    
-    # Wait for backend
-    log_info "Waiting for backend service..."
-    timeout=60
-    while [[ $timeout -gt 0 ]]; do
-        if curl -f http://localhost:8000/health &> /dev/null; then
-            log_success "Backend service is ready"
-            break
-        fi
-        sleep 2
-        timeout=$((timeout - 2))
-    done
-    
-    if [[ $timeout -eq 0 ]]; then
-        log_error "Backend service failed to start within 60 seconds"
-        exit 1
-    fi
-    
-    # Wait for frontend
-    log_info "Waiting for frontend service..."
-    timeout=60
-    while [[ $timeout -gt 0 ]]; do
-        if curl -f http://localhost:3000 &> /dev/null; then
-            log_success "Frontend service is ready"
-            break
-        fi
-        sleep 2
-        timeout=$((timeout - 2))
-    done
-    
-    if [[ $timeout -eq 0 ]]; then
-        log_error "Frontend service failed to start within 60 seconds"
-        exit 1
+    if [ $? -eq 0 ]; then
+        success "Services started successfully"
+    else
+        error "Failed to start services"
     fi
 }
 
-# Show deployment status
+# Wait for services to be healthy
+wait_for_health() {
+    log "Waiting for services to be healthy..."
+    
+    local max_attempts=30
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        if docker-compose ps | grep -q "healthy"; then
+            success "All services are healthy"
+            return 0
+        fi
+        
+        log "Waiting for services to be healthy... (attempt $attempt/$max_attempts)"
+        sleep 10
+        attempt=$((attempt + 1))
+    done
+    
+    warning "Some services may not be healthy. Check with 'docker-compose ps'"
+}
+
+# Show service status
 show_status() {
-    log_info "Deployment status:"
-    echo
-    
-    # Show running containers
-    log_info "Running containers:"
+    log "Service status:"
     docker-compose ps
-    echo
     
-    # Show service URLs
-    log_info "Service URLs:"
-    echo "Frontend: http://localhost:3000"
-    echo "Backend API: http://localhost:8000"
-    echo "API Documentation: http://localhost:8000/docs"
-    echo "Health Check: http://localhost:8000/health"
-    echo
+    echo ""
+    log "Service URLs:"
+    echo "  Frontend: http://localhost:3000"
+    echo "  Backend API: http://localhost:8000"
+    echo "  API Documentation: http://localhost:8000/docs"
+    echo "  Health Check: http://localhost:8000/health"
+}
+
+# Show logs
+show_logs() {
+    log "Recent logs:"
+    docker-compose logs --tail=20
+}
+
+# Backup function
+backup_data() {
+    log "Creating backup of existing data..."
     
-    # Show logs
-    log_info "Recent logs:"
-    docker-compose logs --tail=10
+    local backup_dir="backup_$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$backup_dir"
+    
+    if [ -d "static/exports" ]; then
+        cp -r static/exports "$backup_dir/"
+    fi
+    
+    if [ -d "static/uploads" ]; then
+        cp -r static/uploads "$backup_dir/"
+    fi
+    
+    success "Backup created in $backup_dir"
 }
 
 # Cleanup function
 cleanup() {
-    log_info "Cleaning up..."
-    docker-compose down --remove-orphans
-    log_success "Cleanup completed"
+    log "Cleaning up..."
+    
+    # Remove unused Docker images
+    docker image prune -f
+    
+    # Remove unused Docker volumes
+    docker volume prune -f
+    
+    success "Cleanup completed"
 }
 
 # Main deployment function
-main() {
-    log_info "Starting SUMO Helper production deployment..."
-    echo
+deploy() {
+    log "Starting SUMO Helper deployment..."
     
-    # Check if not running as root
-    check_root
-    
-    # Check prerequisites
     check_prerequisites
+    create_directories
+    load_environment
+    backup_data
+    stop_containers
+    build_images
+    start_services
+    wait_for_health
+    cleanup
     
-    # Generate environment file
-    generate_env_file
-    
-    # Deploy services
-    deploy_services
-    
-    # Wait for services
-    wait_for_services
-    
-    # Show status
+    success "Deployment completed successfully!"
+    echo ""
     show_status
-    
-    log_success "Deployment completed successfully!"
-    echo
-    log_info "You can now access the application at:"
-    echo "  Frontend: http://localhost:3000"
-    echo "  Backend API: http://localhost:8000"
-    echo
-    log_info "To view logs: docker-compose logs -f"
-    log_info "To stop services: docker-compose down"
+    echo ""
+    log "To view logs, run: docker-compose logs -f"
+    log "To stop services, run: docker-compose down"
 }
 
-# Handle script arguments
-case "${1:-}" in
-    "cleanup")
-        cleanup
+# Rollback function
+rollback() {
+    log "Rolling back deployment..."
+    
+    docker-compose down
+    docker-compose up -d --force-recreate
+    
+    success "Rollback completed"
+}
+
+# Usage function
+usage() {
+    echo "SUMO Helper Deployment Script"
+    echo ""
+    echo "Usage: $0 [COMMAND]"
+    echo ""
+    echo "Commands:"
+    echo "  deploy     Deploy the application (default)"
+    echo "  rollback   Rollback to previous version"
+    echo "  status     Show service status"
+    echo "  logs       Show recent logs"
+    echo "  stop       Stop all services"
+    echo "  start      Start all services"
+    echo "  restart    Restart all services"
+    echo "  help       Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 deploy"
+    echo "  $0 status"
+    echo "  $0 logs"
+}
+
+# Main script logic
+case "${1:-deploy}" in
+    deploy)
+        deploy
         ;;
-    "status")
+    rollback)
+        rollback
+        ;;
+    status)
         show_status
         ;;
-    "logs")
-        docker-compose logs -f
+    logs)
+        show_logs
         ;;
-    "restart")
-        log_info "Restarting services..."
+    stop)
+        docker-compose down
+        success "Services stopped"
+        ;;
+    start)
+        docker-compose up -d
+        success "Services started"
+        ;;
+    restart)
         docker-compose restart
-        wait_for_services
-        show_status
+        success "Services restarted"
         ;;
-    "update")
-        log_info "Updating services..."
-        docker-compose pull
-        deploy_services
-        wait_for_services
-        show_status
-        ;;
-    "help"|"-h"|"--help")
-        echo "SUMO Helper Deployment Script"
-        echo
-        echo "Usage: $0 [COMMAND]"
-        echo
-        echo "Commands:"
-        echo "  (no args)  Deploy the application"
-        echo "  cleanup    Stop and remove all containers"
-        echo "  status     Show deployment status"
-        echo "  logs       Show service logs"
-        echo "  restart    Restart all services"
-        echo "  update     Update and redeploy services"
-        echo "  help       Show this help message"
-        ;;
-    "")
-        main
+    help|--help|-h)
+        usage
         ;;
     *)
-        log_error "Unknown command: $1"
-        echo "Use '$0 help' for usage information"
+        error "Unknown command: $1"
+        usage
         exit 1
         ;;
 esac 

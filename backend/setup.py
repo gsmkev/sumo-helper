@@ -1,85 +1,72 @@
-#!/usr/bin/env python3
 """
-Setup script for SUMO Helper Backend
+SUMO Helper Backend Setup
+Web-based traffic simulation tool with OSM integration
 """
 
+from setuptools import setup, find_packages
 import os
-import sys
-import subprocess
-import shutil
 
-def check_python_version():
-    """Check if Python version is compatible"""
-    if sys.version_info < (3, 8):
-        print("❌ Python 3.8 or higher is required")
-        sys.exit(1)
-    print(f"✅ Python {sys.version_info.major}.{sys.version_info.minor} detected")
+# Read the README file
+def read_readme():
+    readme_path = os.path.join(os.path.dirname(__file__), '..', 'README.md')
+    if os.path.exists(readme_path):
+        with open(readme_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    return "SUMO Helper - Web-based traffic simulation tool"
 
-def check_sumo_installation():
-    """Check if SUMO is installed"""
-    try:
-        result = subprocess.run(['sumo', '--version'], capture_output=True, text=True)
-        if result.returncode == 0:
-            print("✅ SUMO is installed")
-            return True
-        else:
-            print("❌ SUMO is not properly installed")
-            return False
-    except FileNotFoundError:
-        print("❌ SUMO is not installed")
-        print("Please install SUMO from: https://sumo.dlr.de/docs/Downloads.php")
-        return False
+# Read requirements
+def read_requirements():
+    requirements_path = os.path.join(os.path.dirname(__file__), 'requirements.txt')
+    if os.path.exists(requirements_path):
+        with open(requirements_path, 'r', encoding='utf-8') as f:
+            return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    return []
 
-def create_directories():
-    """Create necessary directories"""
-    directories = [
-        "static",
-        "static/maps",
-        "static/networks", 
-        "static/simulations",
-        "static/uploads"
-    ]
-    
-    for directory in directories:
-        os.makedirs(directory, exist_ok=True)
-        print(f"✅ Created directory: {directory}")
-
-def install_dependencies():
-    """Install Python dependencies"""
-    print("📦 Installing Python dependencies...")
-    try:
-        subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
-        print("✅ Dependencies installed successfully")
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Error installing dependencies: {e}")
-        sys.exit(1)
-
-def main():
-    print("🚀 Setting up SUMO Helper Backend...")
-    print("=" * 50)
-    
-    # Check Python version
-    check_python_version()
-    
-    # Check SUMO installation
-    if not check_sumo_installation():
-        print("\n⚠️  Please install SUMO before continuing")
-        print("Ubuntu/Debian: sudo apt-get install sumo sumo-tools sumo-doc")
-        print("macOS: brew install sumo")
-        print("Windows: Download from https://sumo.dlr.de/docs/Downloads.php")
-    
-    # Create directories
-    create_directories()
-    
-    # Install dependencies
-    install_dependencies()
-    
-    print("\n" + "=" * 50)
-    print("✅ Setup completed successfully!")
-    print("\nTo start the backend server:")
-    print("  python -m uvicorn main:app --reload --port 8000")
-    print("\nTo start the frontend:")
-    print("  cd ../frontend && npm run dev")
-
-if __name__ == "__main__":
-    main() 
+setup(
+    name="sumo-helper-backend",
+    version="1.0.0",
+    description="Backend for SUMO Helper - Web-based traffic simulation tool",
+    long_description=read_readme(),
+    long_description_content_type="text/markdown",
+    author="SUMO Helper Contributors",
+    author_email="contributors@sumo-helper.org",
+    url="https://github.com/gsmkev/sumo-helper",
+    packages=find_packages(),
+    include_package_data=True,
+    install_requires=read_requirements(),
+    python_requires=">=3.11",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Topic :: Scientific/Engineering :: Information Analysis",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    ],
+    keywords=[
+        "sumo",
+        "traffic-simulation",
+        "openstreetmap",
+        "osm",
+        "traffic-analysis",
+        "transportation",
+        "simulation",
+        "fastapi",
+        "web-application"
+    ],
+    entry_points={
+        "console_scripts": [
+            "sumo-helper=main:main",
+        ],
+    },
+    project_urls={
+        "Bug Reports": "https://github.com/gsmkev/sumo-helper/issues",
+        "Source": "https://github.com/gsmkev/sumo-helper",
+        "Documentation": "https://github.com/gsmkev/sumo-helper#readme",
+    },
+) 

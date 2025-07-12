@@ -1,5 +1,5 @@
-# Build stage
-FROM node:18-alpine AS builder
+# Use Node.js Alpine for smaller image size
+FROM node:18-alpine
 
 # Set work directory
 WORKDIR /app
@@ -8,42 +8,38 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci --silent
 
 # Copy source code
 COPY . .
 
+# Set environment variables for build
+ENV VITE_API_URL=http://localhost:8000
+ENV VITE_APP_NAME="SUMO Helper"
+ENV VITE_APP_VERSION=1.0.0
+
 # Build the application
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Install serve for static file serving
+RUN npm install -g serve
 
-# Copy built application from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Create non-root user
+# Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
 # Change ownership of the app directory
-RUN chown -R nextjs:nodejs /usr/share/nginx/html && \
-    chown -R nextjs:nodejs /var/cache/nginx && \
-    chown -R nextjs:nodejs /var/log/nginx && \
-    chown -R nextjs:nodejs /etc/nginx/conf.d
+RUN chown -R nextjs:nodejs /app
 
 # Switch to non-root user
 USER nextjs
 
 # Expose port
-EXPOSE 80
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"] 
+# Start the application
+CMD ["serve", "-s", "dist", "-l", "3000"] 

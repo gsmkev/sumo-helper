@@ -1,21 +1,48 @@
 {
-  "name": "sumo-helper-monorepo",
+  "name": "sumo-helper",
   "version": "1.0.0",
-  "description": "SUMO Helper - Web-based traffic simulation tool",
-  "private": true,
-  "workspaces": [
-    "frontend",
-    "backend"
+  "description": "A modern web-based traffic simulation tool that integrates OpenStreetMap data with SUMO",
+  "keywords": [
+    "sumo",
+    "traffic-simulation",
+    "openstreetmap",
+    "osm",
+    "traffic-analysis",
+    "transportation",
+    "simulation",
+    "web-application"
   ],
-  "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && . venv/bin/activate && python -m uvicorn main:app --reload --port 8000",
-    "dev:frontend": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build",
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && pip install -r requirements.txt",
-    "setup": "npm run install:all && cd backend && python setup.py"
+  "author": "SUMO Helper Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gsmkev/sumo-helper.git"
   },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
-  }
+  "bugs": {
+    "url": "https://github.com/gsmkev/sumo-helper/issues"
+  },
+  "homepage": "https://github.com/gsmkev/sumo-helper#readme",
+  "scripts": {
+    "install:all": "./install.sh",
+    "install:backend": "./install.sh backend",
+    "install:frontend": "./install.sh frontend",
+    "dev": "./start.sh dev",
+    "dev:backend": "cd backend && . venv/bin/activate && python main.py",
+    "dev:frontend": "cd frontend && npm run dev",
+    "deploy": "./deploy.sh",
+    "deploy:status": "./deploy.sh status",
+    "deploy:logs": "./deploy.sh logs",
+    "deploy:stop": "./deploy.sh stop",
+    "deploy:start": "./deploy.sh start",
+    "deploy:restart": "./deploy.sh restart",
+    "clean": "rm -rf node_modules frontend/node_modules backend/venv static/exports/* static/uploads/*",
+    "test": "echo \"No tests specified\" && exit 0",
+    "lint": "echo \"Linting not configured for root package\" && exit 0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {},
+  "dependencies": {}
 } 

@@ -1,135 +1,64 @@
 # SUMO Helper
 
-Una herramienta web para crear y gestionar simulaciones de tráfico con SUMO (Simulation of Urban MObility) usando datos de OpenStreetMap.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Node.js 18+](https://img.shields.io/badge/node.js-18+-green.svg)](https://nodejs.org/)
+[![SUMO](https://img.shields.io/badge/SUMO-1.16.0-orange.svg)](https://sumo.dlr.de/)
 
-## Características
+A modern web-based traffic simulation tool that integrates OpenStreetMap data with SUMO (Simulation of Urban MObility) for creating and managing traffic simulations.
 
-- **Selección de mapas**: Selecciona áreas de OpenStreetMap para crear redes de tráfico
-- **Conversión automática**: Convierte datos OSM a formato SUMO compatible
-- **Configuración visual**: Editor visual para configurar puntos de entrada/salida
-- **Distribución de vehículos**: Configura diferentes tipos de vehículos y sus porcentajes
-- **Exportación completa**: Genera paquetes ZIP con todos los archivos necesarios
-- **Reconstrucción desde metadatos**: Carga simulaciones previas usando archivos JSON de metadatos
-- **Interfaz web moderna**: Interfaz intuitiva con mapas interactivos
+## 🚀 Features
 
-## Nueva Funcionalidad: Exportación con Metadatos JSON
+- **Interactive Map Selection**: Select areas from OpenStreetMap to create traffic networks
+- **Automatic OSM to SUMO Conversion**: Convert OpenStreetMap data to SUMO-compatible format
+- **Visual Network Editor**: Configure entry/exit points and traffic flow visually
+- **Vehicle Distribution Management**: Configure different vehicle types and their percentages
+- **Complete Simulation Export**: Generate ZIP packages with all necessary files
+- **Simulation Reconstruction**: Load and modify previous simulations using JSON metadata
+- **Modern Web Interface**: Intuitive React-based UI with interactive maps
+- **Real-time WebSocket Communication**: Live updates during simulation processing
 
-### ¿Qué incluye el archivo JSON?
+## 🏗️ Architecture
 
-Cuando exportas una simulación, ahora se incluye un archivo `simulation_metadata.json` que contiene:
-
-- **Información de la simulación**: Nombre, versión, fecha de creación
-- **Datos completos de la red**: Todos los nodos con coordenadas (x, y, lat, lon), tipo, y si son puntos de entrada/salida
-- **Configuración de aristas**: Conexiones entre nodos, velocidad, número de carriles
-- **Configuración de simulación**: Número de vehículos, tiempo de simulación, semilla aleatoria
-- **Distribución de vehículos**: Tipos de vehículos, porcentajes, colores
-- **Puntos seleccionados**: Lista de puntos de entrada y salida elegidos
-- **Rutas generadas**: Todas las rutas calculadas para los vehículos
-- **Instrucciones de reconstrucción**: Pasos para recrear la simulación
-
-### Cómo usar los metadatos para reconstruir
-
-#### Opción 1: Interfaz Web
-1. Ve a la página de selección de mapas
-2. Haz clic en "Load Simulation from File"
-3. Sube el archivo ZIP completo de la simulación exportada
-4. La aplicación extraerá automáticamente el `simulation_metadata.json` y cargará toda la configuración
-5. Puedes modificar y re-exportar la simulación
-
-#### Opción 2: Análisis del JSON
-1. Extrae el ZIP de la simulación
-2. Abre el archivo `simulation_metadata.json`
-3. Usa los datos para reconstruir la simulación programáticamente
-
-### Estructura del archivo JSON
-
-```json
-{
-  "simulation_info": {
-    "name": "simulation_network_id",
-    "created_at": 1234567890,
-    "version": "1.0",
-    "description": "SUMO simulation metadata for reconstruction"
-  },
-  "network_data": {
-    "id": "network_id",
-    "name": "network_name",
-    "bounds": {"xmin": 0, "ymin": 0, "xmax": 100, "ymax": 100},
-    "node_count": 50,
-    "edge_count": 80
-  },
-  "nodes": [
-    {
-      "id": "node_1",
-      "x": 10.5,
-      "y": 20.3,
-      "lat": 40.4168,
-      "lon": -3.7038,
-      "type": "priority",
-      "is_entry_point": true,
-      "is_exit_point": false
-    }
-  ],
-  "edges": [
-    {
-      "id": "edge_1",
-      "from": "node_1",
-      "to": "node_2",
-      "shape": [[40.4168, -3.7038], [40.4169, -3.7039]],
-      "length": 100.0,
-      "speed": 13.89,
-      "lanes": 2
-    }
-  ],
-  "simulation_config": {
-    "total_vehicles": 100,
-    "simulation_time": 3600,
-    "random_seed": 12345,
-    "vehicle_distribution": [
-      {
-        "vehicle_type": "car",
-        "percentage": 70,
-        "color": "yellow",
-        "period": 0.45
-      }
-    ]
-  },
-  "selected_points": {
-    "entry_points": ["node_1", "node_3"],
-    "exit_points": ["node_10", "node_15"]
-  },
-  "routes": [
-    {
-      "id": "route_car_1",
-      "edges": "edge_1 edge_2 edge_5",
-      "vehicle_type": "car",
-      "depart_time": 0.0,
-      "color": "yellow"
-    }
-  ],
-  "reconstruction_info": {
-    "instructions": "Para reconstruir esta simulación:",
-    "steps": [
-      "1. Cargar el archivo simulation_metadata.json",
-      "2. Usar los datos de nodes y edges para recrear la red",
-      "3. Aplicar la configuración de simulación",
-      "4. Configurar los puntos de entrada y salida seleccionados",
-      "5. Aplicar la distribución de vehículos",
-      "6. Generar las rutas basadas en los datos de routes"
-    ]
-  }
-}
+```
+sumo-helper/
+├── backend/                 # FastAPI Python backend
+│   ├── services/           # Business logic services
+│   ├── models/             # Pydantic schemas
+│   └── static/             # File storage
+├── frontend/               # React frontend
+│   ├── src/
+│   │   ├── components/     # Reusable UI components
+│   │   ├── pages/          # Application pages
+│   │   └── utils/          # Utility functions
+│   └── public/             # Static assets
+└── docker-compose.yml      # Production deployment
 ```
 
-## Instalación
+## 🛠️ Technology Stack
 
-### Prerrequisitos
+### Backend
+- **FastAPI** - Modern Python web framework
+- **OSMnx** - OpenStreetMap data processing
+- **SUMO** - Traffic simulation engine
+- **Pydantic** - Data validation
+- **WebSockets** - Real-time communication
 
-- Python 3.8+
-- Node.js 16+
-- SUMO (opcional, para ejecutar simulaciones localmente)
+### Frontend
+- **React 18** - UI framework
+- **Vite** - Build tool
+- **React Router** - Client-side routing
+- **Leaflet** - Interactive maps
+- **Tailwind CSS** - Styling
+- **DaisyUI** - Component library
 
-### Instalación de SUMO
+## 📋 Prerequisites
+
+- **Python 3.11+**
+- **Node.js 18+**
+- **SUMO** (optional, for local simulation execution)
+
+### Installing SUMO
 
 ```bash
 # Ubuntu/Debian
@@ -139,170 +68,236 @@ sudo apt-get install sumo sumo-tools sumo-gui sumo-doc
 brew install sumo
 
 # Windows
-# Descarga desde https://sumo.dlr.de/docs/Downloads.php
+# Download from https://sumo.dlr.de/docs/Downloads.php
 ```
 
-### Configuración del proyecto
+## 🚀 Quick Start
 
-1. **Clona el repositorio**
+### Using Docker (Recommended)
+
+1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/gsmkev/sumo-helper.git
    cd sumo-helper
    ```
 
-2. **Instala dependencias del backend**
+2. **Start the application**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Access the application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - API Documentation: http://localhost:8000/docs
+
+### Manual Installation
+
+1. **Backend Setup**
    ```bash
    cd backend
    python3 -m venv venv
-   source venv/bin/activate  # En Windows: venv\\Scripts\\activate
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
+   python main.py
    ```
 
-3. **Instala dependencias del frontend**
-   ```bash
-   cd ../frontend
-   npm install
-   ```
-
-## Uso
-
-### 1. Inicia los servicios
-
-1. **Backend**
-   ```bash
-   cd backend
-   source venv/bin/activate
-   python3 main.py
-   ```
-   La API estará disponible en `http://localhost:8000`
-
-2. **Frontend**
+2. **Frontend Setup**
    ```bash
    cd frontend
+   npm install
    npm run dev
    ```
-   La interfaz web estará disponible en `http://localhost:5173`
 
-### 2. Selecciona un área del mapa
+## 📖 Usage Guide
 
-- Navega a la página de selección de mapas
-- Elige una ubicación o dibuja un área personalizada
-- El sistema descargará datos OSM para el área seleccionada
+### 1. Map Selection
+- Navigate to the map selection page
+- Choose a location or draw a custom area
+- The system downloads OSM data for the selected area
 
-### 3. Convierte a formato SUMO
+### 2. Network Conversion
+- Click "Convert to SUMO" to generate a SUMO network
+- The system creates a `.net.xml` file compatible with SUMO
 
-- Haz clic en "Convert to SUMO" para generar una red SUMO
-- El sistema creará un archivo `.net.xml` compatible con SUMO
+### 3. Simulation Configuration
+- Navigate to the network editor
+- Review network data and entry/exit points
+- Configure simulation parameters
 
-### 4. Configura la simulación
+### 4. Export Simulation
+- Click "Export Simulation" to download a complete package
+- The ZIP file contains:
+  - `nodes.nod.xml` - Network node definitions
+  - `edges.edg.xml` - Network edge definitions
+  - `routes.rou.xml` - Vehicle routes and flows
+  - `simulation.sumocfg` - Simulation configuration
+  - `traffic_lights.add.xml` - Traffic light definitions
+  - `run_simulation.py` - Simulation execution script
+  - `simulation_metadata.json` - Complete metadata for reconstruction
 
-- Navega a la página de configuración de simulación
-- Revisa los datos de la red y los puntos de entrada/salida
-- Configura los parámetros de simulación
-
-### 5. Exporta la simulación
-
-- Haz clic en "Export Simulation" para descargar un paquete completo
-- El archivo ZIP contiene:
-  - `nodes.nod.xml` - Definición de nodos de la red
-  - `edges.edg.xml` - Definición de aristas de la red
-  - `routes.rou.xml` - Rutas y flujos de vehículos
-  - `simulation.sumocfg` - Configuración de la simulación
-  - `traffic_lights.add.xml` - Semáforos detectados
-  - `run_simulation.py` - Script para ejecutar la simulación
-  - `simulation_metadata.json` - **Metadatos completos para reconstrucción**
-
-### 6. Ejecuta la simulación
-
+### 5. Run Simulation
 ```bash
-# Extrae el archivo ZIP descargado
+# Extract the downloaded ZIP
 unzip simulation_*.zip
 
-# Ejecuta la simulación
+# Run the simulation
 python3 run_simulation.py
-
-# O analiza los metadatos
-cat simulation_metadata.json
 ```
 
-### 7. Reconstruye una simulación previa
+### 6. Load Previous Simulation
+- Go to the map selection page
+- Click "Load Simulation from File"
+- Upload the complete simulation ZIP
+- The application automatically extracts and loads the configuration
 
-#### Desde la interfaz web:
-1. Ve a la página de selección de mapas
-2. Haz clic en "Load Simulation from File"
-3. Sube el archivo ZIP completo de la simulación exportada
-4. La aplicación extraerá el `simulation_metadata.json` y cargará toda la configuración automáticamente
+## 🔌 API Reference
 
-#### Desde línea de comandos:
+### Map Management
+- `POST /api/maps/select-area` - Select map area
+- `GET /api/maps/preview/{map_id}` - Get map preview
+- `POST /api/maps/convert-to-sumo/{map_id}` - Convert to SUMO format
+
+### Network Analysis
+- `GET /api/networks/{network_id}` - Get network data
+- `GET /api/networks/{network_id}/entry-points` - Get entry points
+- `GET /api/networks/{network_id}/exit-points` - Get exit points
+
+### Simulation Management
+- `POST /api/networks/{network_id}/routes` - Configure routes
+- `POST /api/simulations/export/{network_id}` - Export simulation
+- `GET /api/simulations/download/{filename}` - Download simulation files
+
+### File Operations
+- `POST /api/files/upload` - Upload files
+- `POST /api/simulations/load-metadata` - Load simulation metadata
+
+### Real-time Communication
+- `WS /ws` - WebSocket endpoint for real-time updates
+
+## 🐳 Docker Configuration
+
+The application includes production-ready Docker configuration:
+
+- **Multi-stage builds** for optimized image sizes
+- **Non-root users** for security
+- **Health checks** for monitoring
+- **Volume persistence** for data storage
+- **Environment-based configuration**
+
+### Environment Variables
+
 ```bash
-cat simulation_metadata.json
+# Backend
+ENVIRONMENT=production
+HOST=0.0.0.0
+PORT=8000
+LOG_LEVEL=INFO
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+SUMO_HOME=/usr/share/sumo
+OSM_TIMEOUT=30
+OSM_MAX_AREA_SIZE=0.01
+
+# Frontend
+VITE_API_URL=http://localhost:8000
 ```
 
-## API Endpoints
+## 🧪 Development
 
-### Gestión de Mapas
-- `POST /api/maps/select-area` - Seleccionar área del mapa
-- `GET /api/maps/preview/{map_id}` - Obtener vista previa del mapa
-- `POST /api/maps/convert-to-sumo/{map_id}` - Convertir a formato SUMO
+### Backend Development
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt  # For development dependencies
+python main.py
+```
 
-### Análisis de Red
-- `GET /api/networks/{network_id}` - Obtener datos de la red
-- `GET /api/networks/{network_id}/entry-points` - Obtener puntos de entrada
-- `GET /api/networks/{network_id}/exit-points` - Obtener puntos de salida
-- `POST /api/networks/{network_id}/routes` - Configurar rutas
+### Frontend Development
+```bash
+cd frontend
+npm install
+npm run dev
+npm run lint
+npm run build
+```
 
-### Exportación de Simulación
-- `POST /api/simulations/export/{network_id}` - Exportar paquete de simulación
-- `POST /api/simulations/load-metadata` - **Cargar metadatos de simulación**
-- `POST /api/simulations/run/{network_id}` - Ejecutar simulación con GUI
+### Running Tests
+```bash
+# Backend tests
+cd backend
+pytest
 
-## Estructura del Proyecto
+# Frontend tests
+cd frontend
+npm test
+```
+
+## 📁 Project Structure
 
 ```
 sumo-helper/
 ├── backend/
-│   ├── main.py                 # Aplicación FastAPI principal
 │   ├── services/
-│   │   ├── map_service.py      # Gestión de mapas y redes
-│   │   ├── osmnx_service.py    # Procesamiento de datos OSM
-│   │   ├── simulation_service.py # Configuración de simulaciones
-│   │   └── sumo_export_service.py # Exportación SUMO con metadatos
-│   └── models/
-│       └── schemas.py          # Esquemas de datos
+│   │   ├── map_service.py          # Map and OSM processing
+│   │   ├── simulation_service.py   # Simulation management
+│   │   ├── osmnx_service.py        # OSM data handling
+│   │   └── sumo_export_service.py  # SUMO file generation
+│   ├── models/
+│   │   └── schemas.py              # Pydantic data models
+│   ├── static/                     # File storage
+│   ├── main.py                     # FastAPI application
+│   └── requirements.txt            # Python dependencies
 ├── frontend/
 │   ├── src/
+│   │   ├── components/             # Reusable components
 │   │   ├── pages/
-│   │   │   ├── MapSelection.jsx # Selección de mapas
-│   │   │   └── NetworkEditor.jsx # Editor de red y simulación
-│   │   └── components/
-│   └── package.json
-└── README.md
+│   │   │   ├── MapSelection.jsx    # Map selection interface
+│   │   │   └── NetworkEditor.jsx   # Network configuration
+│   │   ├── utils/                  # Utility functions
+│   │   ├── App.jsx                 # Main application
+│   │   └── main.jsx                # Application entry point
+│   ├── public/                     # Static assets
+│   └── package.json                # Node.js dependencies
+├── docker-compose.yml              # Production deployment
+├── .gitignore                      # Git ignore rules
+└── README.md                       # This file
 ```
 
-## Contribuir
+## 🤝 Contributing
 
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
-## Licencia
+### Development Setup
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+## 📄 License
 
-## Soporte
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-Si tienes problemas o preguntas:
+## 🙏 Acknowledgments
 
-1. Revisa la documentación de SUMO: https://sumo.dlr.de/docs/
-2. Abre un issue en GitHub
-3. Consulta los logs del backend para errores detallados
+- [SUMO](https://sumo.dlr.de/) - Traffic simulation framework
+- [OpenStreetMap](https://www.openstreetmap.org/) - Map data
+- [OSMnx](https://osmnx.readthedocs.io/) - OSM data processing
+- [FastAPI](https://fastapi.tiangolo.com/) - Web framework
+- [React](https://reactjs.org/) - UI framework
 
-## Changelog
+## 📞 Support
 
-### v2.0.0 - Nueva funcionalidad de metadatos
-- ✅ Exportación con archivo JSON de metadatos completos
-- ✅ Reconstrucción de simulaciones desde metadatos
-- ✅ Interfaz web para cargar simulaciones previas
-- ✅ Información completa de nodos, aristas y configuración 
+- **Issues**: [GitHub Issues](https://github.com/gsmkev/sumo-helper/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/gsmkev/sumo-helper/discussions)
+- **Documentation**: [Wiki](https://github.com/gsmkev/sumo-helper/wiki)
+
+## 🔄 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes.
+
+---
+
+**Made with ❤️ for the traffic simulation community** 
