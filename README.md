@@ -16,7 +16,6 @@ A modern web-based traffic simulation tool that integrates OpenStreetMap data wi
 - **Complete Simulation Export**: Generate ZIP packages with all necessary files
 - **Simulation Reconstruction**: Load and modify previous simulations using JSON metadata
 - **Modern Web Interface**: Intuitive React-based UI with interactive maps
-- **Real-time WebSocket Communication**: Live updates during simulation processing
 
 ## 🏗️ Architecture
 
@@ -42,7 +41,6 @@ sumo-helper/
 - **OSMnx** - OpenStreetMap data processing
 - **SUMO** - Traffic simulation engine
 - **Pydantic** - Data validation
-- **WebSockets** - Real-time communication
 
 ### Frontend
 - **React 18** - UI framework
@@ -171,9 +169,6 @@ python3 run_simulation.py
 ### File Operations
 - `POST /api/files/upload` - Upload files
 - `POST /api/simulations/load-metadata` - Load simulation metadata
-
-### Real-time Communication
-- `WS /ws` - WebSocket endpoint for real-time updates
 
 ## 🐳 Docker Configuration
 
