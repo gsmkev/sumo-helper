@@ -24,7 +24,7 @@ function MapSelection() {
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [mapId, setMapId] = useState(null)
-  const [mapCenter, setMapCenter] = useState([40.4168, -3.7038]) // Madrid default
+  const [mapCenter, setMapCenter] = useState([-25.2637, -57.5759]) // Asunción, Paraguay
   const [mapZoom, setMapZoom] = useState(10)
   
   // Estados para drag and drop y archivos
@@ -258,7 +258,7 @@ function MapSelection() {
                 <div className="input-group">
                   <input
                     type="text"
-                    placeholder="e.g., Madrid, Spain"
+                    placeholder="e.g., Asunción, Paraguay"
                     className="input input-bordered flex-1"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
